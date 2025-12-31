@@ -1,16 +1,16 @@
-# Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Salin package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
-# Install semua dependencies (termasuk dev) untuk build
 RUN npm ci
 
-# Salin kode
 COPY . .
 
-# Build Next.js app
+ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
+
+EXPOSE 3000
+CMD ["npm", "start"]

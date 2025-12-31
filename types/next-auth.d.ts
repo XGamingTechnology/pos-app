@@ -1,7 +1,6 @@
 import { DefaultSession } from "next-auth";
 import "next-auth/jwt";
 
-// Definisikan UserRole langsung di sini (jangan import)
 type UserRole = "admin" | "cashier";
 
 declare module "next-auth" {
