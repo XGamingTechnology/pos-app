@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { CheckCircle, XCircle, UserPlus, UserCheck, UserX, Pencil, Key, Trash2 } from "lucide-react";
+import { UserRole } from "@/types/next-auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
@@ -14,14 +15,14 @@ const isValidUuid = (id: string): boolean => {
 type User = {
   id: string; // ✅ Harus UUID string
   username: string;
-  role: "admin" | "cashier";
+  role: UserRole;
   active: boolean;
 };
 
 type CurrentUser = {
   id: string; // ✅ UUID dari NextAuth / token
   username: string;
-  role: "admin" | "cashier";
+  role: UserRole;
   backendToken: string | null;
 };
 

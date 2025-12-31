@@ -1,7 +1,8 @@
 // types/next-auth.d.ts
 import "next-auth";
 
-export type UserRole = "cashier" | "admin";
+// UserRole type is now in next-auth.ts
+import { UserRole } from "./next-auth";
 
 declare module "next-auth" {
   interface User {

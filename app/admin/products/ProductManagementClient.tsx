@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react"; // ✅ Tambahkan useMemo
 import { CheckCircle, XCircle, Package, Pencil, Trash2, Tag, Eye, EyeOff, Plus } from "lucide-react";
+import { UserRole } from "@/types/next-auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -25,7 +26,7 @@ type Category = {
 type CurrentUser = {
   id: string;
   username: string;
-  role: "admin" | "cashier";
+  role: UserRole;
   backendToken: string | null;
 };
 

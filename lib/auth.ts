@@ -2,10 +2,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options"; // ✅ AMAN
 import { redirect } from "next/navigation";
-
-// 🔑 Definisikan UserRole secara eksplisit (tanpa import dari file type)
-// Ini menghindari circular dependency & masalah augmentasi
-export type UserRole = "admin" | "cashier";
+import { UserRole } from "@/types/next-auth";
 
 export const ROLES = {
   CASHIER: "cashier" as const,
