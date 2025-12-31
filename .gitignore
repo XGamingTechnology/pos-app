@@ -2,60 +2,54 @@
 # Dependencies
 node_modules/
 
-# Build outputs
+# Build artifacts
 dist/
 build/
-.next/
+*.js.map
 
-# Environment variables
+# Environment
 .env
 .env.local
 .env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Logs
+*.log
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*.tmp
-
-# Testing
+# Coverage reports
 coverage/
 htmlcov/
+.coverage
+
+# Testing
 .pytest_cache/
 .mypy_cache/
+.nyc_output/
+coverage-final.json
 
-# System
-.DS_Store
-Thumbs.db
-```
-Wait, let me reconsider this. The file changes only show TypeScript/Next.js files being modified, not any build artifacts or dependency directories. The original example shows only source code changes.
+# Next.js
+.next/
+out/
 
-```
-
+# TypeScript
+*.tsbuildinfo
+.next/types/
 ```

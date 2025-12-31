@@ -7,12 +7,12 @@ type UserRole = "admin" | "cashier";
 declare module "next-auth" {
   interface Session {
     user: {
-      id: string;
-      username: string;
-      role: UserRole;
-      backendToken: string | null;
-      backendRefreshToken: string | null;
-      isValid: boolean;
+      id?: string;
+      username?: string;
+      role?: UserRole;
+      backendToken?: string | null;
+      backendRefreshToken?: string | null;
+      isValid?: boolean;
     } & DefaultSession["user"];
   }
 
