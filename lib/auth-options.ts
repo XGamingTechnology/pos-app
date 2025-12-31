@@ -1,6 +1,7 @@
 // lib/auth-options.ts
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { UserRole } from "@/types/next-auth";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -74,11 +75,13 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.username = user.username;
-        token.role = user.role;
-        token.backendToken = user.backendToken ?? null;
-        token.backendRefreshToken = user.backendRefreshToken ?? null;
+        // Type assertion untuk user agar sesuai dengan tipe yang didefinisikan
+        const typedUser = user as any;
+        token.id = typedUser.id;
+        token.username = typedUser.username;
+        token.role = typedUser.role;
+        token.backendToken = typedUser.backendToken ?? null;
+        token.backendRefreshToken = typedUser.backendRefreshToken ?? null;
       }
       return token;
     },
