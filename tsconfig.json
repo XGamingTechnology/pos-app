@@ -14,24 +14,17 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "baseUrl": ".", // 👈 Tambahkan ini
+    "paths": {
+      "@/*": ["app/*"],
+      "@/lib/*": ["lib/*"]
+    },
     "plugins": [
       {
         "name": "next"
       }
-    ],
-    "paths": {
-      "@/*": ["./*"]
-    }
+    ]
   },
-  "include": [
-    "types", // ✅ Pastikan ini ada
-    ".eslintrc.cjs",
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
-    "next.config.js"
-  ],
+  "include": ["types", ".eslintrc.cjs", "next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", ".next/dev/types/**/*.ts", "next.config.js"],
   "exclude": ["node_modules"]
 }
