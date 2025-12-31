@@ -1,6 +1,6 @@
 // app/auth-redirect/page.tsx
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth-options";
 import { redirect } from "next/navigation";
 
 export default async function AuthRedirect() {

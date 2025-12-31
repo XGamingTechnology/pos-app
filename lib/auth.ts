@@ -1,6 +1,6 @@
 // lib/auth.ts
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth-options"; // ✅ AMAN
 import { redirect } from "next/navigation";
 
 // 🔑 Definisikan UserRole secara eksplisit (tanpa import dari file type)

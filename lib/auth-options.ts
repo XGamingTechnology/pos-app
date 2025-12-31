@@ -1,12 +1,8 @@
-// app/api/auth/[...nextauth]/route.ts
-import NextAuth, { AuthOptions } from "next-auth";
+// lib/auth-options.ts
+import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-// ✅ HAPUS: import type { UserRole } from "@/types/next-auth.d.ts";
 
-// ✅ HAPUS interface MyUser — karena sudah didefinisikan di types/next-auth.d.ts
-// TypeScript sudah tahu tipe User dan Session dari augmentasi
-
-export const authOptions: AuthOptions = {
+export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -23,6 +19,7 @@ export const authOptions: AuthOptions = {
         }
 
         try {
+          // ✅ Sesuaikan dengan URL backend Anda
           const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -41,8 +38,6 @@ export const authOptions: AuthOptions = {
             return null;
           }
 
-          console.log("[NEXTAUTH][AUTHORIZE] Backend response:", data);
-
           if (res.ok && data.success === true) {
             const rawRole = data.user.role;
             if (rawRole !== "cashier" && rawRole !== "admin") {
@@ -50,13 +45,12 @@ export const authOptions: AuthOptions = {
               return null;
             }
 
-            // ✅ Kembalikan objek yang sesuai dengan tipe `User` yang sudah didefinisikan
             return {
               id: data.user.id,
               username: data.user.username,
-              role: rawRole, // TypeScript tahu ini UserRole
+              role: rawRole,
               name: data.user.username,
-              email: "", // atau dari data jika ada
+              email: "",
               backendToken: data.accessToken ?? null,
               backendRefreshToken: data.refreshToken ?? null,
             };
@@ -85,7 +79,6 @@ export const authOptions: AuthOptions = {
         token.role = user.role;
         token.backendToken = user.backendToken ?? null;
         token.backendRefreshToken = user.backendRefreshToken ?? null;
-        console.log("[NEXTAUTH][JWT] Token updated with user data");
       }
       return token;
     },
@@ -94,14 +87,13 @@ export const authOptions: AuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.username = token.username as string;
-        session.user.role = token.role as "cashier" | "admin"; // ✅ langsung cast
+        session.user.role = token.role as "cashier" | "admin";
         session.user.name = token.username as string;
         session.user.email = "";
         session.user.backendToken = token.backendToken ?? null;
         session.user.backendRefreshToken = token.backendRefreshToken ?? null;
         session.user.isValid = Boolean(token.backendToken);
       }
-      console.log("[NEXTAUTH][SESSION] Session built successfully");
       return session;
     },
 
@@ -116,6 +108,3 @@ export const authOptions: AuthOptions = {
 
   debug: process.env.NODE_ENV === "development",
 };
-
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };

@@ -1,6 +1,6 @@
 // app/orders/[id]/page.tsx
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth-options";
 import { redirect } from "next/navigation";
 import OrderDetailClient from "./OrderDetailClient"; // ✅ Pastikan path benar
 import { requirePermission } from "@/lib/auth";
