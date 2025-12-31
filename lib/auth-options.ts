@@ -76,7 +76,15 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         // Type assertion untuk user agar sesuai dengan tipe yang didefinisikan
-        const typedUser = user as any;
+        const typedUser = user as {
+          id: string;
+          username: string;
+          role: "cashier" | "admin";
+          name: string;
+          email?: string;
+          backendToken?: string | null;
+          backendRefreshToken?: string | null;
+        };
         token.id = typedUser.id;
         token.username = typedUser.username;
         token.role = typedUser.role;
@@ -87,17 +95,22 @@ export const authOptions: NextAuthOptions = {
     },
 
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.username = token.username as string;
-        session.user.role = token.role as "cashier" | "admin";
-        session.user.name = token.username as string;
-        session.user.email = "";
-        session.user.backendToken = token.backendToken ?? null;
-        session.user.backendRefreshToken = token.backendRefreshToken ?? null;
-        session.user.isValid = Boolean(token.backendToken);
-      }
-      return session;
+      // Type assertion untuk session agar sesuai dengan tipe yang didefinisikan
+      const customSession = {
+        ...session,
+        user: {
+          ...session.user,
+          id: token.id as string,
+          username: token.username as string,
+          role: token.role as "cashier" | "admin",
+          name: token.username as string,
+          email: "",
+          backendToken: token.backendToken ?? null,
+          backendRefreshToken: token.backendRefreshToken ?? null,
+          isValid: Boolean(token.backendToken),
+        }
+      };
+      return customSession;
     },
 
     async redirect({ url, baseUrl }) {
