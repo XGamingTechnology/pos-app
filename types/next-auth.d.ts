@@ -1,8 +1,9 @@
 // types/next-auth.d.ts
 import "next-auth";
+import "next-auth/jwt";
 
-// UserRole type is now in next-auth.ts
-import { UserRole } from "./next-auth";
+// Definisikan UserRole secara langsung di sini — jangan import!
+type UserRole = "admin" | "cashier";
 
 declare module "next-auth" {
   interface User {
@@ -19,9 +20,9 @@ declare module "next-auth" {
     user: {
       id: string;
       username: string;
-      role: UserRole;
       name: string;
       email: string;
+      role: UserRole;
       backendToken: string | null;
       backendRefreshToken: string | null;
       isValid: boolean;
