@@ -14,10 +14,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (status === "loading") return;
 
-    if (!session?.user?.role || session.user.role !== "admin") {
+    if (!session?.user || !isAdminUser(session.user)) {
       router.push("/login");
     }
   }, [status, session, router]);
+
+  // Type guard function to check if user is admin
+  function isAdminUser(user: any): user is { role: 'admin' } {
+    return user && user.role === 'admin';
+  }
 
   if (status === "loading") {
     return (
@@ -30,7 +35,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (!session?.user?.role || session.user.role !== "admin") {
+  if (!session?.user || !isAdminUser(session.user)) {
     return null;
   }
 
