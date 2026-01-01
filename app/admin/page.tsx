@@ -26,7 +26,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const fetchSummary = async () => {
-      if (!session?.user?.backendToken) {
+      const backendToken = (session?.user as any)?.backendToken;
+      if (!backendToken) {
         setIsLoading(false);
         return;
       }
@@ -34,13 +35,13 @@ export default function AdminDashboard() {
       try {
         const [usersRes, productsRes, ordersRes] = await Promise.all([
           fetch(`${API_URL}/api/admin/users`, {
-            headers: { Authorization: `Bearer ${session.user?.backendToken}` },
+            headers: { Authorization: `Bearer ${backendToken}` },
           }),
           fetch(`${API_URL}/api/admin/products`, {
-            headers: { Authorization: `Bearer ${session.user?.backendToken}` },
+            headers: { Authorization: `Bearer ${backendToken}` },
           }),
           fetch(`${API_URL}/api/orders`, {
-            headers: { Authorization: `Bearer ${session.user?.backendToken}` },
+            headers: { Authorization: `Bearer ${backendToken}` },
           }),
         ]);
 
@@ -98,7 +99,7 @@ export default function AdminDashboard() {
     return user && user.role === 'admin';
   }
 
-  if (!session?.user || !isAdminUser(session.user)) {
+  if (!session?.user || !isAdminUser(session.user as any)) {
     return null;
   }
 
