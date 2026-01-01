@@ -14,7 +14,7 @@ export default async function ReportPage() {
   try {
     const ordersRes = await fetch(`${API_URL}/api/orders`, {
       headers: {
-        Authorization: `Bearer ${session.user?.backendToken}`,
+        Authorization: `Bearer ${session.user?.backendToken || ""}`,
         "Content-Type": "application/json",
       },
       cache: "no-store",
@@ -31,5 +31,10 @@ export default async function ReportPage() {
     orders = [];
   }
 
-  return <ReportClient orders={orders} currentUser={session.user} canExport={canExport} />;
+  return <ReportClient orders={orders} currentUser={{
+    id: session.user?.id!,
+    username: session.user?.username!,
+    role: session.user?.role!,
+    backendToken: session.user?.backendToken!
+  }} canExport={canExport} />;
 }

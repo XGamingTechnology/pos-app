@@ -9,7 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 export default async function ProductsPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user?.role !== "admin") {
+  if (!session || !session.user?.role || session.user.role !== "admin") {
     return redirect("/login");
   }
 
@@ -19,7 +19,7 @@ export default async function ProductsPage() {
   try {
     // Ambil semua produk
     const productsRes = await fetch(`${API_URL}/api/admin/products`, {
-      headers: { Authorization: `Bearer ${session.user?.backendToken}` },
+      headers: { Authorization: `Bearer ${session.user?.backendToken || ""}` },
       cache: "no-store",
     });
 
@@ -30,7 +30,7 @@ export default async function ProductsPage() {
 
     // Ambil daftar kategori unik
     const categoriesRes = await fetch(`${API_URL}/api/admin/products/categories`, {
-      headers: { Authorization: `Bearer ${session.user?.backendToken}` },
+      headers: { Authorization: `Bearer ${session.user?.backendToken || ""}` },
       cache: "no-store",
     });
 
@@ -44,5 +44,10 @@ export default async function ProductsPage() {
     categories = [];
   }
 
-  return <ProductManagementClient currentUser={session.user} initialProducts={products} initialCategories={categories} />;
+  return <ProductManagementClient currentUser={{
+    id: session.user?.id!,
+    username: session.user?.username!,
+    role: session.user?.role!,
+    backendToken: session.user?.backendToken!
+  }} initialProducts={products} initialCategories={categories} />;
 }
