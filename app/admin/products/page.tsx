@@ -9,10 +9,15 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 export default async function ProductsPage() {
   const session = await getServerSession(authOptions);
 
-  const hasValidUser = session?.user && (session.user as any)?.id && (session.user as any)?.username && (session.user as any)?.backendToken;
-  const userRole = (session.user as any)?.role;
+  // Validasi session lebih awal
+  if (!session?.user) {
+    return redirect("/login");
+  }
 
-  if (!session || !hasValidUser || !userRole || userRole !== "admin") {
+  const { id, username, role, backendToken } = session.user;
+
+  // Validasi properti wajib
+  if (!id || !username || !role || !backendToken || role !== "admin") {
     return redirect("/login");
   }
 
@@ -22,7 +27,7 @@ export default async function ProductsPage() {
   try {
     // Ambil semua produk
     const productsRes = await fetch(`${API_URL}/api/admin/products`, {
-      headers: { Authorization: `Bearer ${(session.user as any)?.backendToken || ""}` },
+      headers: { Authorization: `Bearer ${backendToken}` },
       cache: "no-store",
     });
 
@@ -33,7 +38,7 @@ export default async function ProductsPage() {
 
     // Ambil daftar kategori unik
     const categoriesRes = await fetch(`${API_URL}/api/admin/products/categories`, {
-      headers: { Authorization: `Bearer ${(session.user as any)?.backendToken || ""}` },
+      headers: { Authorization: `Bearer ${backendToken}` },
       cache: "no-store",
     });
 
@@ -47,10 +52,16 @@ export default async function ProductsPage() {
     categories = [];
   }
 
-  return <ProductManagementClient currentUser={{
-    id: (session.user as any)?.id || "",
-    username: (session.user as any)?.username || "",
-    role: (session.user as any)?.role || "cashier",
-    backendToken: (session.user as any)?.backendToken || null
-  }} initialProducts={products} initialCategories={categories} />;
+  return (
+    <ProductManagementClient
+      currentUser={{
+        id,
+        username,
+        role,
+        backendToken,
+      }}
+      initialProducts={products}
+      initialCategories={categories}
+    />
+  );
 }
