@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { CheckCircle, XCircle, UserPlus, UserCheck, UserX, Pencil, Key, Trash2 } from "lucide-react";
-import { UserRole } from "@/types/next-auth";
+
+type UserRole = "admin" | "cashier";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
