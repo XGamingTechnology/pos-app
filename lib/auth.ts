@@ -38,9 +38,14 @@ export async function requirePermission(permissionKey: keyof typeof PERMISSIONS)
   }
 
   // ✅ Pastikan role valid
-  const user = session.user as { role?: string };
+  const user = session.user as { role?: string; id?: string; username?: string; backendToken?: string | null };
   const userRole = user.role;
   if (userRole !== "cashier" && userRole !== "admin") {
+    redirect("/login");
+  }
+
+  // ✅ Pastikan user memiliki properti yang diperlukan
+  if (!user.id || !user.username || !user.backendToken) {
     redirect("/login");
   }
 

@@ -32,9 +32,9 @@ export default async function ReportPage() {
   }
 
   return <ReportClient orders={orders} currentUser={{
-    id: session.user?.id!,
-    username: session.user?.username!,
-    role: session.user?.role!,
-    backendToken: session.user?.backendToken!
+    id: session.user?.id || "",
+    username: session.user?.username || "",
+    role: session.user?.role || "cashier",
+    backendToken: session.user?.backendToken || null
   }} canExport={canExport} />;
 }

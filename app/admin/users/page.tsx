@@ -15,7 +15,10 @@ const isValidUuid = (id: string): boolean => {
 export default async function UsersPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user?.role || session.user.role !== "admin") {
+  const hasValidUser = session?.user && session.user.id && session.user.username && session.user.backendToken;
+  const userRole = session?.user?.role;
+
+  if (!session || !hasValidUser || !userRole || userRole !== "admin") {
     return redirect("/login");
   }
 
@@ -61,9 +64,9 @@ export default async function UsersPage() {
   }
 
   return <UserManagementClient currentUser={{
-    id: session.user?.id!,
-    username: session.user?.username!,
-    role: session.user?.role!,
-    backendToken: session.user?.backendToken!
+    id: session.user?.id || "",
+    username: session.user?.username || "",
+    role: session.user?.role || "cashier",
+    backendToken: session.user?.backendToken || null
   }} initialUsers={users} />;
 }

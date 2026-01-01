@@ -9,7 +9,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 export default async function ProductsPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !((session.user as any)?.role) || (session.user as any)?.role !== "admin") {
+  const hasValidUser = session?.user && (session.user as any)?.id && (session.user as any)?.username && (session.user as any)?.backendToken;
+  const userRole = (session.user as any)?.role;
+
+  if (!session || !hasValidUser || !userRole || userRole !== "admin") {
     return redirect("/login");
   }
 
@@ -45,9 +48,9 @@ export default async function ProductsPage() {
   }
 
   return <ProductManagementClient currentUser={{
-    id: (session.user as any)?.id!,
-    username: (session.user as any)?.username!,
-    role: (session.user as any)?.role!,
-    backendToken: (session.user as any)?.backendToken!
+    id: (session.user as any)?.id || "",
+    username: (session.user as any)?.username || "",
+    role: (session.user as any)?.role || "cashier",
+    backendToken: (session.user as any)?.backendToken || null
   }} initialProducts={products} initialCategories={categories} />;
 }
