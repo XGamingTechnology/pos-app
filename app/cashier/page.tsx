@@ -15,7 +15,7 @@ export default async function CashierPage({ searchParams }: { searchParams: Prom
 
   // ✅ Proteksi RBAC
   const allowedRoles = [ROLES.CASHIER, ROLES.ADMIN];
-  const userRole = session?.user.role;
+  const userRole = session?.user?.role;
 
   if (!session || !userRole || !allowedRoles.includes(userRole as any)) {
     return redirect("/login");
@@ -28,7 +28,7 @@ export default async function CashierPage({ searchParams }: { searchParams: Prom
     // ✅ Ambil daftar produk
     const productsRes = await fetch(`${API_URL}/api/products`, {
       headers: {
-        Authorization: `Bearer ${session.user.backendToken}`,
+        Authorization: `Bearer ${session.user?.backendToken}`,
         "Content-Type": "application/json",
       },
       cache: "no-store",
@@ -45,7 +45,7 @@ export default async function CashierPage({ searchParams }: { searchParams: Prom
     if (editOrderId) {
       const orderRes = await fetch(`${API_URL}/api/orders/${editOrderId}`, {
         headers: {
-          Authorization: `Bearer ${session.user.backendToken}`,
+          Authorization: `Bearer ${session.user?.backendToken}`,
           "Content-Type": "application/json",
         },
         cache: "no-store",
@@ -66,11 +66,11 @@ export default async function CashierPage({ searchParams }: { searchParams: Prom
   return (
     <CashierClient
       user={{
-        id: session.user.id,
-        username: session.user.username,
-        role: session.user.role,
-        backendToken: session.user.backendToken,
-        backendRefreshToken: session.user.backendRefreshToken,
+        id: session.user?.id,
+        username: session.user?.username,
+        role: session.user?.role,
+        backendToken: session.user?.backendToken,
+        backendRefreshToken: session.user?.backendRefreshToken,
       }}
       initialProducts={products}
       initialOrder={initialOrder} // ✅ Kirim data order ke client

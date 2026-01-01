@@ -11,7 +11,7 @@ export default async function AuthRedirect() {
   }
 
   // ✅ Arahkan berdasarkan role
-  if (session.user.role === "admin") {
+  if (session.user?.role === "admin") {
     return redirect("/admin");
   }
   return redirect("/"); // untuk cashier

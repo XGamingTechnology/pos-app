@@ -15,7 +15,7 @@ const isValidUuid = (id: string): boolean => {
 export default async function UsersPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== "admin") {
+  if (!session || session.user?.role !== "admin") {
     return redirect("/login");
   }
 
@@ -24,7 +24,7 @@ export default async function UsersPage() {
   try {
     const res = await fetch(`${API_URL}/api/admin/users`, {
       headers: {
-        Authorization: `Bearer ${session.user.backendToken}`,
+        Authorization: `Bearer ${session.user?.backendToken}`,
         "Content-Type": "application/json",
       },
       cache: "no-store",

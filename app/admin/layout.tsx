@@ -113,7 +113,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* User Info & Logout */}
             <div className="flex items-center gap-3">
               <div className="hidden md:flex flex-col items-end text-right">
-                <p className="text-sm font-medium text-slate-800">{session.user.username}</p>
+                <p className="text-sm font-medium text-slate-800">{session.user?.username || session.user?.name || "Admin"}</p>
                 <p className="text-xs text-emerald-600 font-medium">Admin</p>
               </div>
 
