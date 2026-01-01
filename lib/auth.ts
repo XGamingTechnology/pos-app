@@ -37,7 +37,8 @@ export async function requirePermission(permissionKey: keyof typeof PERMISSIONS)
   }
 
   // ✅ Pastikan role valid
-  const userRole = session.user.role;
+  const user = session.user as { role?: string };
+  const userRole = user.role;
   if (userRole !== "cashier" && userRole !== "admin") {
     redirect("/login");
   }
