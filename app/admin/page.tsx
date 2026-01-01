@@ -34,13 +34,13 @@ export default function AdminDashboard() {
       try {
         const [usersRes, productsRes, ordersRes] = await Promise.all([
           fetch(`${API_URL}/api/admin/users`, {
-            headers: { Authorization: `Bearer ${session.user.backendToken}` },
+            headers: { Authorization: `Bearer ${session.user?.backendToken}` },
           }),
           fetch(`${API_URL}/api/admin/products`, {
-            headers: { Authorization: `Bearer ${session.user.backendToken}` },
+            headers: { Authorization: `Bearer ${session.user?.backendToken}` },
           }),
           fetch(`${API_URL}/api/orders`, {
-            headers: { Authorization: `Bearer ${session.user.backendToken}` },
+            headers: { Authorization: `Bearer ${session.user?.backendToken}` },
           }),
         ]);
 
@@ -93,7 +93,12 @@ export default function AdminDashboard() {
     );
   }
 
-  if (!session?.user?.role || session.user.role !== "admin") {
+  // Type guard function to check if user is admin
+  function isAdminUser(user: any): user is { role: 'admin' } {
+    return user && user.role === 'admin';
+  }
+
+  if (!session?.user || !isAdminUser(session.user)) {
     return null;
   }
 

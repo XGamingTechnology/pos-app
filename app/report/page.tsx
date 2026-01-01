@@ -14,7 +14,7 @@ export default async function ReportPage() {
   try {
     const ordersRes = await fetch(`${API_URL}/api/orders`, {
       headers: {
-        Authorization: `Bearer ${session.user.backendToken}`,
+        Authorization: `Bearer ${session.user?.backendToken}`,
         "Content-Type": "application/json",
       },
       cache: "no-store",
@@ -25,7 +25,7 @@ export default async function ReportPage() {
       orders = (data.data || []).filter((o: any) => o.status === "PAID");
     }
 
-    canExport = session.user.role === "admin"; // ✅ Perbaikan: bukan canPublish
+    canExport = session.user?.role === "admin"; // ✅ Perbaikan: bukan canPublish
   } catch (err) {
     console.error("Fetch orders error:", err);
     orders = [];
