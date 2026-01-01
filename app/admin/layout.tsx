@@ -19,8 +19,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [status, session, router]);
 
+  // Define a more complete admin user type
+  type AdminUser = {
+    role: 'admin';
+    name?: string;
+    username?: string;
+    email?: string;
+  };
+
   // Type guard function to check if user is admin
-  function isAdminUser(user: any): user is { role: 'admin' } {
+  function isAdminUser(user: any): user is AdminUser {
     return user && user.role === 'admin';
   }
 
@@ -113,7 +121,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {/* User Info & Logout */}
             <div className="flex items-center gap-3">
               <div className="hidden md:flex flex-col items-end text-right">
-                <p className="text-sm font-medium text-slate-800">{(session.user as { username?: string })?.username || session.user?.name || "Admin"}</p>
+                <p className="text-sm font-medium text-slate-800">{(session.user as AdminUser)?.username || (session.user as AdminUser)?.name || "Admin"}</p>
                 <p className="text-xs text-emerald-600 font-medium">Admin</p>
               </div>
 
