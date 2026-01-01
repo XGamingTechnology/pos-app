@@ -2,7 +2,8 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth-options"; // ✅ AMAN
 import { redirect } from "next/navigation";
-import { UserRole } from "@/types/next-auth";
+
+type UserRole = "admin" | "cashier";
 
 export const ROLES = {
   CASHIER: "cashier" as const,

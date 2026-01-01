@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import type { UserRole } from "@/types/next-auth";
+
+type UserRole = "admin" | "cashier";
 
 type OrderItem = {
   product_id: string;
