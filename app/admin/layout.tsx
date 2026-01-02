@@ -21,7 +21,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // Define a more complete admin user type
   type AdminUser = {
-    role: 'admin';
+    role: "admin";
     name?: string;
     username?: string;
     email?: string;
@@ -29,7 +29,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // Type guard function to check if user is admin
   function isAdminUser(user: any): user is AdminUser {
-    return user && user.role === 'admin';
+    return user && user.role === "admin";
   }
 
   if (status === "loading") {
@@ -109,7 +109,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center gap-4">
             {/* Dashboard Utama */}
             <a
-              href="https://06ns6l3d-3000.asse.devtunnels.ms"
+              href="https://sotoibuksenopati.online"
               target="_blank"
               rel="noopener noreferrer"
               className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors text-sm font-medium"
