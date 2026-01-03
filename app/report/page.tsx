@@ -9,10 +9,15 @@ export default async function ReportPage() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL!;
   let orders = [];
-  let canExport = false; // ✅ Deklarasi benar
+  let canExport = false;
 
   try {
-    const ordersRes = await fetch(`${API_URL}/api/orders`, {
+    // ✅ GUNAKAN ENDPOINT YANG FLEKSIBEL UNTUK FILTER
+    const url = new URL(`${API_URL}/api/admin/reports/orders`);
+    // Secara default, ambil semua order PAID
+    url.searchParams.append("period", "all");
+
+    const ordersRes = await fetch(url.toString(), {
       headers: {
         Authorization: `Bearer ${session.user?.backendToken || ""}`,
         "Content-Type": "application/json",
@@ -22,19 +27,25 @@ export default async function ReportPage() {
 
     if (ordersRes.ok) {
       const data = await ordersRes.json();
-      orders = (data.data || []).filter((o: any) => o.status === "PAID");
+      orders = data.success ? data.data : [];
     }
 
-    canExport = session.user?.role === "admin"; // ✅ Perbaikan: bukan canPublish
+    canExport = session.user?.role === "admin";
   } catch (err) {
     console.error("Fetch orders error:", err);
     orders = [];
   }
 
-  return <ReportClient orders={orders} currentUser={{
-    id: session.user?.id || "",
-    username: session.user?.username || "",
-    role: session.user?.role || "cashier",
-    backendToken: session.user?.backendToken || null
-  }} canExport={canExport} />;
+  return (
+    <ReportClient
+      orders={orders}
+      currentUser={{
+        id: session.user?.id || "",
+        username: session.user?.username || "",
+        role: session.user?.role || "cashier",
+        backendToken: session.user?.backendToken || null,
+      }}
+      canExport={canExport}
+    />
+  );
 }
