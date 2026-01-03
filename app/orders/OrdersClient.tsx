@@ -19,7 +19,7 @@ export type Order = {
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
-const DASHBOARD_URL = "https://06ns6l3d-3000.asse.devtunnels.ms";
+const DASHBOARD_URL = "https://sotoibuksenopati.online";
 
 /* ================= FORMATTER ================= */
 const rupiah = (value: number) =>
