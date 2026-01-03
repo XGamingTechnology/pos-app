@@ -52,7 +52,10 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   // Fetch produk terlaris berdasarkan filter
   useEffect(() => {
     const fetchTopProducts = async () => {
-      if (!currentUser.backendToken) return;
+      if (!currentUser.backendToken) {
+        setTopProducts([]);
+        return;
+      }
 
       try {
         let url = `${API_URL}/api/admin/reports/top-products?`;
@@ -61,10 +64,21 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
         } else {
           url += `period=${dateFilter}`;
         }
-        
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout 5s
+
         const res = await fetch(url, {
           headers: { Authorization: `Bearer ${currentUser.backendToken}` },
+          signal: controller.signal,
         });
+
+        clearTimeout(timeoutId);
+
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
         const data = await res.json();
         setTopProducts(data.success ? data.data : []);
       } catch (err) {
@@ -72,6 +86,7 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
         setTopProducts([]);
       }
     };
+
     fetchTopProducts();
   }, [dateFilter, startDate, endDate, currentUser.backendToken]);
 
@@ -129,53 +144,50 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   const totalTransaksi = filteredOrders.length;
   const rataRataPerTransaksi = totalTransaksi > 0 ? totalOmzet / totalTransaksi : 0;
 
-  // Siapkan data grafik
+  // Siapkan data grafik — hanya hari dengan data nyata
   const getDailyData = () => {
-    const daily: Record<string, { date: string; total: number; count: number }> = {};
-    
-    // For custom date range, calculate based on the selected range
-    if (dateFilter === "custom" && startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      
-      // Create date range
-      const dateRange = [];
-      const currentDate = new Date(start);
-      while (currentDate <= end) {
-        const key = currentDate.toISOString().split("T")[0];
-        dateRange.push(key);
-        daily[key] = { date: key, total: 0, count: 0 };
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-    } else {
-      // For other periods, use the existing logic
-      const now = new Date();
-      const days = dateFilter === "7days" ? 7 : dateFilter === "30days" ? 30 : 7; // Default to 7 days
-      
-      for (let i = days - 1; i >= 0; i--) {
-        const date = new Date(now);
-        date.setDate(date.getDate() - i);
-        const key = date.toISOString().split("T")[0];
-        daily[key] = { date: key, total: 0, count: 0 };
-      }
-    }
+    const dailyMap = new Map<string, { date: string; total: number; count: number }>();
 
+    // Kumpulkan data dari filteredOrders
     filteredOrders.forEach((order) => {
       const key = order.created_at.split("T")[0];
-      if (daily[key]) {
-        daily[key].total += order.total;
-        daily[key].count += 1;
+      if (!dailyMap.has(key)) {
+        dailyMap.set(key, { date: key, total: 0, count: 0 });
       }
+      const existing = dailyMap.get(key)!;
+      existing.total += order.total;
+      existing.count += 1;
     });
 
-    return Object.values(daily).map((d) => ({
+    // Konversi ke array
+    let dailyArray = Array.from(dailyMap.values()).map((d) => ({
       ...d,
-      label: new Date(d.date).toLocaleDateString("id-ID", { 
-        weekday: "short", 
-        day: "numeric", 
-        month: "short"
+      label: new Date(d.date).toLocaleDateString("id-ID", {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
       }),
     }));
+
+    // Urutkan dari awal ke akhir
+    dailyArray.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    // Jika filter adalah "today", "7days", atau "30days", pastikan hanya hari dalam rentang itu
+    if (dateFilter !== "all" && dateFilter !== "custom") {
+      const now = new Date();
+      const days = dateFilter === "7days" ? 7 : dateFilter === "30days" ? 30 : 1;
+
+      const validDates = new Set<string>();
+      for (let i = 0; i < days; i++) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - (days - 1 - i));
+        validDates.add(date.toISOString().split("T")[0]);
+      }
+
+      dailyArray = dailyArray.filter((item) => validDates.has(item.date));
+    }
+
+    return dailyArray;
   };
 
   const getPaymentMethodData = () => {
@@ -343,23 +355,23 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
           <SummaryCard
             label="Rata-rata/Hari"
             value={
-              dateFilter === "today" 
-                ? formatCurrency(totalOmzet) 
-                : dateFilter === "7days" 
-                  ? formatCurrency(totalOmzet / 7) 
-                  : dateFilter === "30days" 
-                    ? formatCurrency(totalOmzet / 30) 
-                    : dateFilter === "custom" && startDate && endDate
-                      ? (() => {
-                          const start = new Date(startDate);
-                          const end = new Date(endDate);
-                          const diffTime = Math.abs(end.getTime() - start.getTime());
-                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
-                          return formatCurrency(totalOmzet / diffDays);
-                        })()
-                      : dateFilter === "all"
-                        ? "–"
-                        : formatCurrency(totalOmzet / 7)
+              dateFilter === "today"
+                ? formatCurrency(totalOmzet)
+                : dateFilter === "7days"
+                ? formatCurrency(totalOmzet / 7)
+                : dateFilter === "30days"
+                ? formatCurrency(totalOmzet / 30)
+                : dateFilter === "custom" && startDate && endDate
+                ? (() => {
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    const diffTime = Math.abs(end.getTime() - start.getTime());
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+                    return formatCurrency(totalOmzet / diffDays);
+                  })()
+                : dateFilter === "all"
+                ? "–"
+                : formatCurrency(totalOmzet / 7)
             }
             icon="📅"
           />
@@ -370,15 +382,15 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
           {/* Omzet Harian - Judul dinamis sesuai filter */}
           <section className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
             <h3 className="font-semibold text-gray-900 text-lg mb-4">
-              {dateFilter === "today" 
-                ? "📈 Omzet Harian (Hari Ini)" 
-                : dateFilter === "7days" 
-                  ? "📈 Omzet Harian (7 Hari Terakhir)" 
-                  : dateFilter === "30days" 
-                    ? "📈 Omzet Harian (30 Hari Terakhir)" 
-                    : dateFilter === "custom" && startDate && endDate
-                      ? `📈 Omzet Harian (${startDate} - ${endDate})`
-                      : "📈 Omzet Harian (Semua Waktu)"}
+              {dateFilter === "today"
+                ? "📈 Omzet Harian (Hari Ini)"
+                : dateFilter === "7days"
+                ? "📈 Omzet Harian (7 Hari Terakhir)"
+                : dateFilter === "30days"
+                ? "📈 Omzet Harian (30 Hari Terakhir)"
+                : dateFilter === "custom" && startDate && endDate
+                ? `📈 Omzet Harian (${startDate} - ${endDate})`
+                : "📈 Omzet Harian (Semua Waktu)"}
             </h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -386,12 +398,20 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                   <XAxis dataKey="label" tick={{ fill: "#4b5563" }} />
                   <YAxis tickFormatter={(value) => `Rp${value / 1000}k`} tick={{ fill: "#4b5563" }} />
-                  <Tooltip 
-                    formatter={(value) => [formatCurrency(Number(value)), "Omzet"]} 
-                    labelFormatter={(label) => `Tanggal: ${label}`} 
-                    contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e5e7eb" }} 
-                  />
-                  <Bar dataKey="total" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  <Tooltip formatter={(value) => [formatCurrency(Number(value)), "Omzet"]} labelFormatter={(label) => `Tanggal: ${label}`} contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e5e7eb" }} />
+                  <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                    {dailyData.map((entry, index) => {
+                      const maxValue = Math.max(...dailyData.map((d) => d.total));
+                      const percentage = entry.total / maxValue;
+                      let color = "#10B981";
+                      if (percentage < 0.3) {
+                        color = "#EF4444";
+                      } else if (percentage < 0.6) {
+                        color = "#F59E0B";
+                      }
+                      return <Cell key={`cell-${index}`} fill={color} />;
+                    })}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -428,62 +448,46 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
           </section>
         </div>
 
-        {/* PRODUK TERLARIS - Desain ulang untuk tampilan yang lebih user-friendly */}
+        {/* PRODUK TERLARIS */}
         {topProducts.length > 0 && (
           <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
             <div className="p-5 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h3 className="font-semibold text-gray-900 text-lg">🔥 10 Produk Terlaris</h3>
               <div className="flex items-center gap-2">
-                <select 
-                  value={topProductsMode} 
-                  onChange={(e) => setTopProductsMode(e.target.value as "qty" | "revenue")} 
-                  className="text-sm border border-gray-300 rounded px-2.5 py-1.5 text-gray-900"
-                >
+                <select value={topProductsMode} onChange={(e) => setTopProductsMode(e.target.value as "qty" | "revenue")} className="text-sm border border-gray-300 rounded px-2.5 py-1.5 text-gray-900">
                   <option value="qty">Berdasarkan Jumlah Terjual</option>
                   <option value="revenue">Berdasarkan Pendapatan</option>
                 </select>
               </div>
             </div>
-            
-            {/* Tabel Produk Terlaris - lebih user-friendly */}
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">No</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nama Produk</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      {topProductsMode === "qty" ? "Jumlah Terjual" : "Pendapatan"}
-                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">{topProductsMode === "qty" ? "Jumlah Terjual" : "Pendapatan"}</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Grafik</th>
                   </tr>
                 </thead>
                 <tbody>
                   {topProducts.map((product, index) => {
-                    const maxValue = Math.max(...topProducts.map(p => 
-                      topProductsMode === "qty" ? p.qty : p.revenue
-                    ));
-                    const barWidth = (topProductsMode === "qty" 
-                      ? (product.qty / maxValue) * 100 
-                      : (product.revenue / maxValue) * 100
-                    );
-                    
+                    const maxValue = Math.max(...topProducts.map((p) => (topProductsMode === "qty" ? p.qty : p.revenue)));
+                    const barWidth = topProductsMode === "qty" ? (product.qty / maxValue) * 100 : (product.revenue / maxValue) * 100;
+
                     return (
                       <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="px-4 py-3 text-gray-700">{index + 1}</td>
                         <td className="px-4 py-3 font-medium text-gray-900">{product.name}</td>
-                        <td className="px-4 py-3 text-gray-700">
-                          {topProductsMode === "qty" 
-                            ? `${product.qty} pcs` 
-                            : formatCurrency(product.revenue)}
-                        </td>
+                        <td className="px-4 py-3 text-gray-700">{topProductsMode === "qty" ? `${product.qty} pcs` : formatCurrency(product.revenue)}</td>
                         <td className="px-4 py-3">
                           <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div 
-                              className="h-2.5 rounded-full" 
-                              style={{ 
-                                width: `${barWidth}%`, 
-                                backgroundColor: PRODUCT_COLORS[index % PRODUCT_COLORS.length] 
+                            <div
+                              className="h-2.5 rounded-full"
+                              style={{
+                                width: `${barWidth}%`,
+                                backgroundColor: PRODUCT_COLORS[index % PRODUCT_COLORS.length],
                               }}
                             ></div>
                           </div>
@@ -529,13 +533,7 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                   </thead>
                   <tbody>
                     {currentOrders.map((o) => (
-                      <OrderRow 
-                        key={o.id} 
-                        order={o} 
-                        formatCurrency={formatCurrency} 
-                        formatDate={formatDate}
-                        currentUser={currentUser}
-                      />
+                      <OrderRow key={o.id} order={o} formatCurrency={formatCurrency} formatDate={formatDate} currentUser={currentUser} />
                     ))}
                   </tbody>
                 </table>
@@ -619,17 +617,7 @@ type OrderDetail = {
 };
 
 // Komponen untuk baris order
-function OrderRow({ 
-  order, 
-  formatCurrency,
-  formatDate,
-  currentUser
-}: { 
-  order: Order; 
-  formatCurrency: (value: number) => string;
-  formatDate: (dateString: string) => string;
-  currentUser: CurrentUser;
-}) {
+function OrderRow({ order, formatCurrency, formatDate, currentUser }: { order: Order; formatCurrency: (value: number) => string; formatDate: (dateString: string) => string; currentUser: CurrentUser }) {
   const [showDetails, setShowDetails] = useState(false);
   const [orderDetails, setOrderDetails] = useState<OrderDetail[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -641,23 +629,33 @@ function OrderRow({
     try {
       setLoadingDetails(true);
       setError(null);
-      
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout 5s
+
       const res = await fetch(`${API_URL}/api/admin/orders/${order.id}/details`, {
-        headers: { 
+        headers: {
           Authorization: `Bearer ${currentUser.backendToken}`,
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
+        signal: controller.signal,
       });
-      
+
+      clearTimeout(timeoutId);
+
       if (!res.ok) {
-        throw new Error('Gagal mengambil detail order');
+        throw new Error(`Gagal mengambil detail order: ${res.status} ${res.statusText}`);
       }
-      
+
       const data = await res.json();
-      setOrderDetails(data.success ? data.data : []);
+      if (!data.success) {
+        throw new Error(data.message || "Respon tidak valid");
+      }
+
+      setOrderDetails(data.data || []);
     } catch (err) {
       console.error("Fetch order details error:", err);
-      setError("Gagal memuat detail order");
+      setError(err instanceof Error ? err.message : "Gagal memuat detail order");
       setOrderDetails([]);
     } finally {
       setLoadingDetails(false);
@@ -674,9 +672,9 @@ function OrderRow({
   // Ambil nama produk dari detail order
   const getProductNames = () => {
     if (orderDetails.length > 0) {
-      return orderDetails.map(detail => detail.product_name).join(', ');
+      return orderDetails.map((detail) => `${detail.quantity} x ${detail.product_name}`).join(", ");
     }
-    return 'Detail tidak tersedia';
+    return "Detail tidak tersedia";
   };
 
   return (
@@ -684,30 +682,26 @@ function OrderRow({
       <tr className="border-b border-gray-100 hover:bg-gray-50">
         <Td className="font-mono text-xs text-gray-700">{order.id.slice(0, 8).toUpperCase()}</Td>
         <Td className="text-gray-800">{order.customer_name || "Customer Umum"}</Td>
-        <Td className="text-gray-700">
-          {getProductNames().length > 30 
-            ? `${getProductNames().substring(0, 30)}...` 
-            : getProductNames()}
-        </Td>
+        <Td className="text-gray-700">{getProductNames().length > 30 ? `${getProductNames().substring(0, 30)}...` : getProductNames()}</Td>
         <Td>
-          <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">
-            {order.payment_method || "–"}
-          </span>
+          <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">{order.payment_method || "–"}</span>
         </Td>
         <Td className="font-semibold text-emerald-700">{formatCurrency(order.total)}</Td>
         <Td>
-          <button 
-            onClick={toggleDetails}
-            className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-          >
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${order.status === "PAID" ? "bg-green-100 text-green-800" : order.status === "CANCELED" ? "bg-red-100 text-red-800" : "bg-yellow-100 text-yellow-800"}`}>
+            {order.status}
+          </span>
+        </Td>
+        <Td>
+          <button onClick={toggleDetails} className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
             {showDetails ? "Sembunyikan" : "Lihat Detail"}
           </button>
         </Td>
       </tr>
-      
+
       {showDetails && (
         <tr className="bg-gray-50">
-          <td colSpan={6} className="px-4 py-4">
+          <td colSpan={9} className="px-4 py-4">
             {loadingDetails ? (
               <div className="flex justify-center py-4">
                 <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -738,11 +732,6 @@ function OrderRow({
                       ))}
                     </tbody>
                   </table>
-                </div>
-                <div className="mt-3 pt-3 border-t border-gray-200 flex justify-end">
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600">Total: <span className="font-semibold text-emerald-700">{formatCurrency(order.total)}</span></p>
-                  </div>
                 </div>
               </div>
             ) : (
