@@ -1,6 +1,5 @@
 // app/report/page.tsx
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth-options";
 import ReportClient from "./ReportClient";
 import { requirePermission } from "@/lib/auth";
 
@@ -9,12 +8,12 @@ export default async function ReportPage() {
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL!;
   let orders = [];
-  let canExport = false;
+  let canExport = session.user?.role === "admin";
 
   try {
-    // ✅ GUNAKAN ENDPOINT YANG FLEKSIBEL UNTUK FILTER
+    // Ambil SEMUA order dengan detail produk
     const url = new URL(`${API_URL}/api/admin/reports/orders`);
-    url.searchParams.set("period", "all");
+    url.searchParams.set("period", "all"); // Default: semua waktu
 
     const ordersRes = await fetch(url.toString(), {
       headers: {
@@ -28,8 +27,6 @@ export default async function ReportPage() {
       const data = await ordersRes.json();
       orders = data.success ? data.data : [];
     }
-
-    canExport = session.user?.role === "admin";
   } catch (err) {
     console.error("Fetch orders error:", err);
     orders = [];

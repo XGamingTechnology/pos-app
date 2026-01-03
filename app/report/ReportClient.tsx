@@ -5,7 +5,13 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
-type UserRole = "admin" | "cashier";
+// ✅ Tambahkan tipe untuk item produk
+type OrderItem = {
+  product_name: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+};
 
 type Order = {
   id: string;
@@ -15,6 +21,7 @@ type Order = {
   total: number;
   status: "DRAFT" | "PAID" | "CANCELED";
   payment_method?: string;
+  items: OrderItem[]; // ✅ Sudah ada di backend!
 };
 
 type TopProduct = {
@@ -32,7 +39,6 @@ type CurrentUser = {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
-// Warna profesional
 const PAYMENT_COLORS = ["#10B981", "#3B82F6", "#8B5CF6", "#F59E0B", "#EF4444"];
 const PRODUCT_COLORS = ["#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#6B7280", "#10B981", "#F59E0B"];
 
@@ -49,48 +55,7 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   const [showCustomDate, setShowCustomDate] = useState(false);
   const itemsPerPage = 10;
 
-  // Fetch produk terlaris berdasarkan filter
-  useEffect(() => {
-    const fetchTopProducts = async () => {
-      if (!currentUser.backendToken) {
-        setTopProducts([]);
-        return;
-      }
-
-      try {
-        let url = `${API_URL}/api/admin/reports/top-products?`;
-        if (dateFilter === "custom" && startDate && endDate) {
-          url += `start=${startDate}&end=${endDate}`;
-        } else {
-          url += `period=${dateFilter}`;
-        }
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout 5s
-
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${currentUser.backendToken}` },
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!res.ok) {
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
-
-        const data = await res.json();
-        setTopProducts(data.success ? data.data : []);
-      } catch (err) {
-        console.error("Fetch top products error:", err);
-        setTopProducts([]);
-      }
-    };
-
-    fetchTopProducts();
-  }, [dateFilter, startDate, endDate, currentUser.backendToken]);
-
-  // Filter order PAID
+  // Filter order PAID (seharusnya semua sudah PAID, tapi tetap amankan)
   const paidOrders = orders.filter((o) => o.status === "PAID");
 
   // Helper: cek apakah order dalam rentang
@@ -134,6 +99,26 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
     return dateMatch && methodMatch && searchMatch;
   });
 
+  // ✅ Pindahkan useEffect DI BAWAH filteredOrders
+  useEffect(() => {
+    const productMap = new Map<string, { name: string; qty: number; revenue: number }>();
+
+    filteredOrders.forEach((order) => {
+      order.items.forEach((item) => {
+        if (!productMap.has(item.product_name)) {
+          productMap.set(item.product_name, { name: item.product_name, qty: 0, revenue: 0 });
+        }
+        const p = productMap.get(item.product_name)!;
+        p.qty += item.quantity;
+        p.revenue += item.subtotal;
+      });
+    });
+
+    let products = Array.from(productMap.values());
+    products.sort((a, b) => (topProductsMode === "qty" ? b.qty - a.qty : b.revenue - a.revenue));
+    setTopProducts(products.slice(0, 10));
+  }, [filteredOrders, topProductsMode]);
+
   // Pagination
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -148,7 +133,6 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   const getDailyData = () => {
     const dailyMap = new Map<string, { date: string; total: number; count: number }>();
 
-    // Kumpulkan data dari filteredOrders
     filteredOrders.forEach((order) => {
       const key = order.created_at.split("T")[0];
       if (!dailyMap.has(key)) {
@@ -159,7 +143,6 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
       existing.count += 1;
     });
 
-    // Konversi ke array
     let dailyArray = Array.from(dailyMap.values()).map((d) => ({
       ...d,
       label: new Date(d.date).toLocaleDateString("id-ID", {
@@ -169,21 +152,17 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
       }),
     }));
 
-    // Urutkan dari awal ke akhir
     dailyArray.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    // Jika filter adalah "today", "7days", atau "30days", pastikan hanya hari dalam rentang itu
     if (dateFilter !== "all" && dateFilter !== "custom") {
       const now = new Date();
-      const days = dateFilter === "7days" ? 7 : dateFilter === "30days" ? 30 : 1;
-
+      const days = dateFilter === "7days" ? 7 : 30;
       const validDates = new Set<string>();
       for (let i = 0; i < days; i++) {
         const date = new Date(now);
         date.setDate(date.getDate() - (days - 1 - i));
         validDates.add(date.toISOString().split("T")[0]);
       }
-
       dailyArray = dailyArray.filter((item) => validDates.has(item.date));
     }
 
@@ -268,11 +247,8 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
               onChange={(e) => {
                 const value = e.target.value as "today" | "7days" | "30days" | "all" | "custom";
                 setDateFilter(value);
-                if (value !== "custom") {
-                  setShowCustomDate(false);
-                } else {
-                  setShowCustomDate(true);
-                }
+                if (value !== "custom") setShowCustomDate(false);
+                else setShowCustomDate(true);
               }}
               className="w-full px-3.5 py-2.5 text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             >
@@ -365,8 +341,7 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                 ? (() => {
                     const start = new Date(startDate);
                     const end = new Date(endDate);
-                    const diffTime = Math.abs(end.getTime() - start.getTime());
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+                    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
                     return formatCurrency(totalOmzet / diffDays);
                   })()
                 : dateFilter === "all"
@@ -379,7 +354,7 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
 
         {/* CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Omzet Harian - Judul dinamis sesuai filter */}
+          {/* Omzet Harian */}
           <section className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
             <h3 className="font-semibold text-gray-900 text-lg mb-4">
               {dateFilter === "today"
@@ -404,11 +379,8 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                       const maxValue = Math.max(...dailyData.map((d) => d.total));
                       const percentage = entry.total / maxValue;
                       let color = "#10B981";
-                      if (percentage < 0.3) {
-                        color = "#EF4444";
-                      } else if (percentage < 0.6) {
-                        color = "#F59E0B";
-                      }
+                      if (percentage < 0.3) color = "#EF4444";
+                      else if (percentage < 0.6) color = "#F59E0B";
                       return <Cell key={`cell-${index}`} fill={color} />;
                     })}
                   </Bar>
@@ -433,8 +405,9 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                     dataKey="value"
                     nameKey="name"
                     label={({ name, percent }) => {
-                      if (percent === undefined) return name;
-                      return `${name}: ${(percent * 100).toFixed(0)}%`;
+                      // ✅ Pastikan percent tidak undefined
+                      const pct = percent !== undefined ? (percent * 100).toFixed(0) : "0";
+                      return `${name}: ${pct}%`;
                     }}
                   >
                     {paymentData.map((entry, index) => (
@@ -460,7 +433,6 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                 </select>
               </div>
             </div>
-
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
@@ -475,7 +447,6 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                   {topProducts.map((product, index) => {
                     const maxValue = Math.max(...topProducts.map((p) => (topProductsMode === "qty" ? p.qty : p.revenue)));
                     const barWidth = topProductsMode === "qty" ? (product.qty / maxValue) * 100 : (product.revenue / maxValue) * 100;
-
                     return (
                       <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="px-4 py-3 text-gray-700">{index + 1}</td>
@@ -483,13 +454,7 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                         <td className="px-4 py-3 text-gray-700">{topProductsMode === "qty" ? `${product.qty} pcs` : formatCurrency(product.revenue)}</td>
                         <td className="px-4 py-3">
                           <div className="w-full bg-gray-200 rounded-full h-2.5">
-                            <div
-                              className="h-2.5 rounded-full"
-                              style={{
-                                width: `${barWidth}%`,
-                                backgroundColor: PRODUCT_COLORS[index % PRODUCT_COLORS.length],
-                              }}
-                            ></div>
+                            <div className="h-2.5 rounded-full" style={{ width: `${barWidth}%`, backgroundColor: PRODUCT_COLORS[index % PRODUCT_COLORS.length] }}></div>
                           </div>
                         </td>
                       </tr>
@@ -501,7 +466,7 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
           </section>
         )}
 
-        {/* RIWAYAT TRANSAKSI DENGAN PAGINATION */}
+        {/* RIWAYAT TRANSAKSI */}
         <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-5 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="font-semibold text-gray-900 text-lg">Riwayat Transaksi</h3>
@@ -533,13 +498,13 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                   </thead>
                   <tbody>
                     {currentOrders.map((o) => (
-                      <OrderRow key={o.id} order={o} formatCurrency={formatCurrency} formatDate={formatDate} currentUser={currentUser} />
+                      <OrderRow key={o.id} order={o} formatCurrency={formatCurrency} formatDate={formatDate} />
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Pagination Controls */}
+              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="px-5 py-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <p className="text-sm text-gray-600">
@@ -547,14 +512,14 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                   </p>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                       disabled={currentPage === 1}
                       className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                     >
                       Sebelumnya
                     </button>
                     <button
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                       disabled={currentPage === totalPages}
                       className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                     >
@@ -577,10 +542,6 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
           body {
             background: white !important;
             color: black !important;
-          }
-          main {
-            padding: 0 !important;
-            max-width: 100% !important;
           }
           .bg-gray-50,
           .bg-white {
@@ -605,76 +566,15 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   );
 }
 
-// Interface untuk detail order
-type OrderDetail = {
-  id: string;
-  order_id: string;
-  product_id: string;
-  product_name: string;
-  quantity: number;
-  price: number;
-  subtotal: number;
-};
-
-// Komponen untuk baris order
-function OrderRow({ order, formatCurrency, formatDate, currentUser }: { order: Order; formatCurrency: (value: number) => string; formatDate: (dateString: string) => string; currentUser: CurrentUser }) {
+// ✅ OrderRow: Tidak perlu fetch detail — data sudah ada di order.items
+function OrderRow({ order, formatCurrency, formatDate }: { order: Order; formatCurrency: (value: number) => string; formatDate: (dateString: string) => string }) {
   const [showDetails, setShowDetails] = useState(false);
-  const [orderDetails, setOrderDetails] = useState<OrderDetail[]>([]);
-  const [loadingDetails, setLoadingDetails] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchOrderDetails = async () => {
-    if (!currentUser.backendToken) return;
-
-    try {
-      setLoadingDetails(true);
-      setError(null);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout 5s
-
-      const res = await fetch(`${API_URL}/api/admin/orders/${order.id}/details`, {
-        headers: {
-          Authorization: `Bearer ${currentUser.backendToken}`,
-          "Content-Type": "application/json",
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!res.ok) {
-        throw new Error(`Gagal mengambil detail order: ${res.status} ${res.statusText}`);
-      }
-
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.message || "Respon tidak valid");
-      }
-
-      setOrderDetails(data.data || []);
-    } catch (err) {
-      console.error("Fetch order details error:", err);
-      setError(err instanceof Error ? err.message : "Gagal memuat detail order");
-      setOrderDetails([]);
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
-  const toggleDetails = () => {
-    if (!showDetails) {
-      fetchOrderDetails();
-    }
-    setShowDetails(!showDetails);
-  };
-
-  // Ambil nama produk dari detail order
   const getProductNames = () => {
-    if (orderDetails.length > 0) {
-      return orderDetails.map((detail) => `${detail.quantity} x ${detail.product_name}`).join(", ");
+    if (order.items.length > 0) {
+      return order.items.map((item) => `${item.quantity} x ${item.product_name}`).join(", ");
     }
-    return "Detail tidak tersedia";
+    return "Tidak ada produk";
   };
 
   return (
@@ -693,7 +593,7 @@ function OrderRow({ order, formatCurrency, formatDate, currentUser }: { order: O
           </span>
         </Td>
         <Td>
-          <button onClick={toggleDetails} className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
+          <button onClick={() => setShowDetails(!showDetails)} className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
             {showDetails ? "Sembunyikan" : "Lihat Detail"}
           </button>
         </Td>
@@ -702,41 +602,36 @@ function OrderRow({ order, formatCurrency, formatDate, currentUser }: { order: O
       {showDetails && (
         <tr className="bg-gray-50">
           <td colSpan={9} className="px-4 py-4">
-            {loadingDetails ? (
-              <div className="flex justify-center py-4">
-                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            ) : error ? (
-              <div className="text-red-600 text-center py-2">{error}</div>
-            ) : orderDetails.length > 0 ? (
-              <div className="space-y-2">
-                <h4 className="font-medium text-gray-900">Detail Produk:</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm border border-gray-200 rounded">
-                    <thead className="bg-gray-100">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nama Produk</th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Jumlah</th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Harga</th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Subtotal</th>
+            <div className="space-y-2">
+              <h4 className="font-medium text-gray-900">Detail Produk:</h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border border-gray-200 rounded">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nama Produk</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Jumlah</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Harga</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.items.map((detail, idx) => (
+                      <tr key={idx} className="border-b border-gray-100">
+                        <td className="px-3 py-2 text-gray-800">{detail.product_name}</td>
+                        <td className="px-3 py-2 text-gray-700">{detail.quantity}</td>
+                        <td className="px-3 py-2 text-gray-700">{formatCurrency(detail.price)}</td>
+                        <td className="px-3 py-2 font-medium text-emerald-700">{formatCurrency(detail.subtotal)}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {orderDetails.map((detail) => (
-                        <tr key={detail.id} className="border-b border-gray-100">
-                          <td className="px-3 py-2 text-gray-800">{detail.product_name}</td>
-                          <td className="px-3 py-2 text-gray-700">{detail.quantity}</td>
-                          <td className="px-3 py-2 text-gray-700">{formatCurrency(detail.price)}</td>
-                          <td className="px-3 py-2 font-medium text-emerald-700">{formatCurrency(detail.subtotal)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ) : (
-              <div className="text-center py-2 text-gray-500">Tidak ada detail produk tersedia</div>
-            )}
+              <div className="mt-3 pt-3 border-t border-gray-200 flex justify-end">
+                <p className="text-sm text-gray-600">
+                  Total: <span className="font-semibold text-emerald-700">{formatCurrency(order.total)}</span>
+                </p>
+              </div>
+            </div>
           </td>
         </tr>
       )}
