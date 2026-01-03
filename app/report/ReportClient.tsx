@@ -275,16 +275,28 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
 
         {/* CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Omzet Harian */}
+          {/* Omzet Harian - Judul dinamis sesuai filter */}
           <section className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
-            <h3 className="font-semibold text-gray-900 text-lg mb-4">📈 Omzet Harian (7 Hari Terakhir)</h3>
+            <h3 className="font-semibold text-gray-900 text-lg mb-4">
+              {dateFilter === "today" 
+                ? "📈 Omzet Harian (Hari Ini)" 
+                : dateFilter === "7days" 
+                  ? "📈 Omzet Harian (7 Hari Terakhir)" 
+                  : dateFilter === "30days" 
+                    ? "📈 Omzet Harian (30 Hari Terakhir)" 
+                    : "📈 Omzet Harian (Semua Waktu)"}
+            </h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={dailyData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                   <XAxis dataKey="label" tick={{ fill: "#4b5563" }} />
                   <YAxis tickFormatter={(value) => `Rp${value / 1000}k`} tick={{ fill: "#4b5563" }} />
-                  <Tooltip formatter={(value) => [formatCurrency(Number(value)), "Omzet"]} labelFormatter={(label) => `Tanggal: ${label}`} contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e5e7eb" }} />
+                  <Tooltip 
+                    formatter={(value) => [formatCurrency(Number(value)), "Omzet"]} 
+                    labelFormatter={(label) => `Tanggal: ${label}`} 
+                    contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e5e7eb" }} 
+                  />
                   <Bar dataKey="total" fill="#10B981" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -322,36 +334,71 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
           </section>
         </div>
 
-        {/* PRODUK TERLARIS */}
+        {/* PRODUK TERLARIS - Desain ulang untuk tampilan yang lebih user-friendly */}
         {topProducts.length > 0 && (
           <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
             <div className="p-5 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <h3 className="font-semibold text-gray-900 text-lg">🔥 10 Produk Terlaris</h3>
               <div className="flex items-center gap-2">
-                <select value={topProductsMode} onChange={(e) => setTopProductsMode(e.target.value as "qty" | "revenue")} className="text-sm border border-gray-300 rounded px-2.5 py-1.5 text-gray-900">
+                <select 
+                  value={topProductsMode} 
+                  onChange={(e) => setTopProductsMode(e.target.value as "qty" | "revenue")} 
+                  className="text-sm border border-gray-300 rounded px-2.5 py-1.5 text-gray-900"
+                >
                   <option value="qty">Berdasarkan Jumlah Terjual</option>
                   <option value="revenue">Berdasarkan Pendapatan</option>
                 </select>
               </div>
             </div>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topProducts} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
-                  <XAxis type="number" tickFormatter={(value) => (topProductsMode === "qty" ? `${value}` : `Rp${value / 1000}k`)} tick={{ fill: "#4b5563" }} />
-                  <YAxis dataKey="name" type="category" width={130} tick={{ fill: "#4b5563" }} />
-                  <Tooltip
-                    formatter={(value) => (topProductsMode === "qty" ? [`${value} pcs`, "Jumlah"] : [formatCurrency(Number(value)), "Pendapatan"])}
-                    labelFormatter={(label) => `Produk: ${label}`}
-                    contentStyle={{ borderRadius: "0.5rem", border: "1px solid #e5e7eb" }}
-                  />
-                  <Bar dataKey={topProductsMode === "qty" ? "qty" : "revenue"} radius={[0, 4, 4, 0]}>
-                    {topProducts.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PRODUCT_COLORS[index % PRODUCT_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+            
+            {/* Tabel Produk Terlaris - lebih user-friendly */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">No</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nama Produk</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                      {topProductsMode === "qty" ? "Jumlah Terjual" : "Pendapatan"}
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Grafik</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topProducts.map((product, index) => {
+                    const maxValue = Math.max(...topProducts.map(p => 
+                      topProductsMode === "qty" ? p.qty : p.revenue
+                    ));
+                    const barWidth = (topProductsMode === "qty" 
+                      ? (product.qty / maxValue) * 100 
+                      : (product.revenue / maxValue) * 100
+                    );
+                    
+                    return (
+                      <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="px-4 py-3 text-gray-700">{index + 1}</td>
+                        <td className="px-4 py-3 font-medium text-gray-900">{product.name}</td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {topProductsMode === "qty" 
+                            ? `${product.qty} pcs` 
+                            : formatCurrency(product.revenue)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div 
+                              className="h-2.5 rounded-full" 
+                              style={{ 
+                                width: `${barWidth}%`, 
+                                backgroundColor: PRODUCT_COLORS[index % PRODUCT_COLORS.length] 
+                              }}
+                            ></div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           </section>
         )}
@@ -376,23 +423,22 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                   <thead className="bg-gray-50">
                     <tr>
                       <Th>ID Order</Th>
-                      <Th>Tanggal</Th>
                       <Th>Pelanggan</Th>
+                      <Th>Produk</Th>
                       <Th>Metode</Th>
                       <Th>Total</Th>
+                      <Th>Aksi</Th>
                     </tr>
                   </thead>
                   <tbody>
                     {currentOrders.map((o) => (
-                      <tr key={o.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <Td className="font-mono text-xs text-gray-700">{o.id.slice(0, 8).toUpperCase()}</Td>
-                        <Td className="text-gray-800">{formatDate(o.created_at)}</Td>
-                        <Td className="text-gray-800">{o.customer_name || "Customer Umum"}</Td>
-                        <Td>
-                          <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">{o.payment_method || "–"}</span>
-                        </Td>
-                        <Td className="font-semibold text-emerald-700">{formatCurrency(o.total)}</Td>
-                      </tr>
+                      <OrderRow 
+                        key={o.id} 
+                        order={o} 
+                        formatCurrency={formatCurrency} 
+                        formatDate={formatDate}
+                        currentUser={currentUser}
+                      />
                     ))}
                   </tbody>
                 </table>
@@ -464,6 +510,154 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   );
 }
 
+// Interface untuk detail order
+type OrderDetail = {
+  id: string;
+  order_id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  price: number;
+  subtotal: number;
+};
+
+// Komponen untuk baris order
+function OrderRow({ 
+  order, 
+  formatCurrency,
+  formatDate,
+  currentUser
+}: { 
+  order: Order; 
+  formatCurrency: (value: number) => string;
+  formatDate: (dateString: string) => string;
+  currentUser: CurrentUser;
+}) {
+  const [showDetails, setShowDetails] = useState(false);
+  const [orderDetails, setOrderDetails] = useState<OrderDetail[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchOrderDetails = async () => {
+    if (!currentUser.backendToken) return;
+
+    try {
+      setLoadingDetails(true);
+      setError(null);
+      
+      const res = await fetch(`${API_URL}/api/admin/orders/${order.id}/details`, {
+        headers: { 
+          Authorization: `Bearer ${currentUser.backendToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!res.ok) {
+        throw new Error('Gagal mengambil detail order');
+      }
+      
+      const data = await res.json();
+      setOrderDetails(data.success ? data.data : []);
+    } catch (err) {
+      console.error("Fetch order details error:", err);
+      setError("Gagal memuat detail order");
+      setOrderDetails([]);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const toggleDetails = () => {
+    if (!showDetails) {
+      fetchOrderDetails();
+    }
+    setShowDetails(!showDetails);
+  };
+
+  // Ambil nama produk dari detail order
+  const getProductNames = () => {
+    if (orderDetails.length > 0) {
+      return orderDetails.map(detail => detail.product_name).join(', ');
+    }
+    return 'Detail tidak tersedia';
+  };
+
+  return (
+    <>
+      <tr className="border-b border-gray-100 hover:bg-gray-50">
+        <Td className="font-mono text-xs text-gray-700">{order.id.slice(0, 8).toUpperCase()}</Td>
+        <Td className="text-gray-800">{order.customer_name || "Customer Umum"}</Td>
+        <Td className="text-gray-700">
+          {getProductNames().length > 30 
+            ? `${getProductNames().substring(0, 30)}...` 
+            : getProductNames()}
+        </Td>
+        <Td>
+          <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">
+            {order.payment_method || "–"}
+          </span>
+        </Td>
+        <Td className="font-semibold text-emerald-700">{formatCurrency(order.total)}</Td>
+        <Td>
+          <button 
+            onClick={toggleDetails}
+            className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+          >
+            {showDetails ? "Sembunyikan" : "Lihat Detail"}
+          </button>
+        </Td>
+      </tr>
+      
+      {showDetails && (
+        <tr className="bg-gray-50">
+          <td colSpan={6} className="px-4 py-4">
+            {loadingDetails ? (
+              <div className="flex justify-center py-4">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : error ? (
+              <div className="text-red-600 text-center py-2">{error}</div>
+            ) : orderDetails.length > 0 ? (
+              <div className="space-y-2">
+                <h4 className="font-medium text-gray-900">Detail Produk:</h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border border-gray-200 rounded">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Nama Produk</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Jumlah</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Harga</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orderDetails.map((detail) => (
+                        <tr key={detail.id} className="border-b border-gray-100">
+                          <td className="px-3 py-2 text-gray-800">{detail.product_name}</td>
+                          <td className="px-3 py-2 text-gray-700">{detail.quantity}</td>
+                          <td className="px-3 py-2 text-gray-700">{formatCurrency(detail.price)}</td>
+                          <td className="px-3 py-2 font-medium text-emerald-700">{formatCurrency(detail.subtotal)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 pt-3 border-t border-gray-200 flex justify-end">
+                  <div className="text-right">
+                    <p className="text-sm text-gray-600">Total: <span className="font-semibold text-emerald-700">{formatCurrency(order.total)}</span></p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-2 text-gray-500">Tidak ada detail produk tersedia</div>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
 function SummaryCard({ label, value, icon }: { label: string; value: string; icon: string }) {
   return (
     <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm text-center">
@@ -482,4 +676,7 @@ function Th({ children }: { children: React.ReactNode }) {
 
 function Td({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <td className={`px-4 py-3 border-b border-gray-100 ${className}`}>{children}</td>;
+}
+</div>
+  );
 }
