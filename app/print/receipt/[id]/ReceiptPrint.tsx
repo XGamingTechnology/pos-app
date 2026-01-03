@@ -230,7 +230,7 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
           </button>
 
           <button
-            onClick={() => (window.location.href = "/kasir")}
+            onClick={() => (window.location.href = "https://sotoibuksenopati.online/cashier")}
             style={{
               padding: "8px 16px",
               fontSize: "14px",
