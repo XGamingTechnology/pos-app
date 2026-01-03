@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 // ✅ Tambahkan tipe untuk item produk
@@ -55,8 +55,8 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   const [showCustomDate, setShowCustomDate] = useState(false);
   const itemsPerPage = 10;
 
-  // Filter order PAID (seharusnya semua sudah PAID, tapi tetap amankan)
-  const paidOrders = orders.filter((o) => o.status === "PAID");
+  // ✅ Memoisasi paidOrders
+  const paidOrders = useMemo(() => orders.filter((o) => o.status === "PAID"), [orders]);
 
   // Helper: cek apakah order dalam rentang
   const isWithinDays = (dateStr: string, days: number) => {
@@ -80,26 +80,33 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
     return orderDate >= startDate && orderDate <= endDate;
   };
 
-  // Terapkan filter pada order
-  const filteredOrders = paidOrders.filter((order) => {
-    let dateMatch = true;
-    if (dateFilter === "today") {
-      dateMatch = isToday(order.created_at);
-    } else if (dateFilter === "7days") {
-      dateMatch = isWithinDays(order.created_at, 7);
-    } else if (dateFilter === "30days") {
-      dateMatch = isWithinDays(order.created_at, 30);
-    } else if (dateFilter === "custom" && startDate && endDate) {
-      dateMatch = isBetweenDates(order.created_at, startDate, endDate);
-    }
+  // ✅ Memoisasi filteredOrders
+  const filteredOrders = useMemo(() => {
+    return paidOrders.filter((order) => {
+      let dateMatch = true;
+      if (dateFilter === "today") {
+        dateMatch = isToday(order.created_at);
+      } else if (dateFilter === "7days") {
+        dateMatch = isWithinDays(order.created_at, 7);
+      } else if (dateFilter === "30days") {
+        dateMatch = isWithinDays(order.created_at, 30);
+      } else if (dateFilter === "custom" && startDate && endDate) {
+        dateMatch = isBetweenDates(order.created_at, startDate, endDate);
+      }
 
-    const methodMatch = methodFilter === "all" || order.payment_method === methodFilter;
-    const searchMatch = !searchTerm || order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) || order.id.toLowerCase().includes(searchTerm.toLowerCase());
+      const methodMatch = methodFilter === "all" || order.payment_method === methodFilter;
+      const searchMatch = !searchTerm || order.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) || order.id.toLowerCase().includes(searchTerm.toLowerCase());
 
-    return dateMatch && methodMatch && searchMatch;
-  });
+      return dateMatch && methodMatch && searchMatch;
+    });
+  }, [paidOrders, dateFilter, methodFilter, searchTerm, startDate, endDate]);
 
-  // ✅ Pindahkan useEffect DI BAWAH filteredOrders
+  // ✅ Reset halaman ke 1 saat filter berubah (CEGAH INFINITE LOOP)
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFilter, methodFilter, searchTerm, startDate, endDate]);
+
+  // ✅ Hitung produk terlaris
   useEffect(() => {
     const productMap = new Map<string, { name: string; qty: number; revenue: number }>();
 
@@ -122,15 +129,17 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   // Pagination
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const currentOrders = filteredOrders.slice(startIndex, startIndex + itemsPerPage);
+  const currentOrders = useMemo(() => {
+    return filteredOrders.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredOrders, startIndex, itemsPerPage]);
 
   // Hitung statistik
-  const totalOmzet = filteredOrders.reduce((sum, o) => sum + o.total, 0);
+  const totalOmzet = useMemo(() => filteredOrders.reduce((sum, o) => sum + o.total, 0), [filteredOrders]);
   const totalTransaksi = filteredOrders.length;
   const rataRataPerTransaksi = totalTransaksi > 0 ? totalOmzet / totalTransaksi : 0;
 
-  // Siapkan data grafik — hanya hari dengan data nyata
-  const getDailyData = () => {
+  // ✅ Memoisasi dailyData
+  const dailyData = useMemo(() => {
     const dailyMap = new Map<string, { date: string; total: number; count: number }>();
 
     filteredOrders.forEach((order) => {
@@ -167,20 +176,21 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
     }
 
     return dailyArray;
-  };
+  }, [filteredOrders, dateFilter]);
 
-  const getPaymentMethodData = () => {
+  // ✅ Memoisasi paymentData
+  const paymentData = useMemo(() => {
     const map = new Map<string, number>();
     filteredOrders.forEach((order) => {
       const method = order.payment_method || "Lainnya";
       map.set(method, (map.get(method) || 0) + 1);
     });
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
-  };
+  }, [filteredOrders]);
 
-  const dailyData = getDailyData();
-  const paymentData = getPaymentMethodData();
-  const paymentMethods = Array.from(new Set(paidOrders.map((o) => o.payment_method).filter(Boolean)));
+  const paymentMethods = useMemo(() => {
+    return Array.from(new Set(paidOrders.map((o) => o.payment_method).filter(Boolean)));
+  }, [paidOrders]);
 
   const handlePrint = () => {
     setIsPrinting(true);
@@ -405,7 +415,6 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                     dataKey="value"
                     nameKey="name"
                     label={({ name, percent }) => {
-                      // ✅ Pastikan percent tidak undefined
                       const pct = percent !== undefined ? (percent * 100).toFixed(0) : "0";
                       return `${name}: ${pct}%`;
                     }}
