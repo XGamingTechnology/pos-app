@@ -53,65 +53,68 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
     load();
   }, [orderId]);
 
-  // ✅ Auto-print & auto-close setelah print selesai (desktop only)
-  // Auto-print & auto-close yang lebih andal
+  // 🖨️ Auto-print & auto-close hanya di desktop
   useEffect(() => {
-    if (order) {
-      const closeWindow = () => {
-        // Coba tutup, tapi hanya jika dibuka oleh script
-        if (window.opener || window.name === "receipt") {
-          setTimeout(() => {
-            window.close();
-          }, 500);
-        }
-      };
+    if (!order || isMobile) return;
 
-      if (!isMobile) {
-        // Coba pakai afterprint (desktop)
-        const handleAfterPrint = () => {
-          closeWindow();
-        };
-
-        if (window.matchMedia) {
-          // Deteksi jika print dialog muncul (fallback untuk browser lama)
-          const mediaQueryList = window.matchMedia("print");
-          mediaQueryList.addListener((mql) => {
-            if (!mql.matches) {
-              // Setelah print selesai
-              closeWindow();
-            }
-          });
-        }
-
-        window.addEventListener("afterprint", handleAfterPrint);
-
-        // Trigger print
-        window.print();
-
-        // Fallback: tutup otomatis setelah 8 detik jika afterprint tidak jalan
-        const fallbackTimeout = setTimeout(closeWindow, 8000);
-
-        return () => {
-          window.removeEventListener("afterprint", handleAfterPrint);
-          clearTimeout(fallbackTimeout);
-        };
+    const closeWindow = () => {
+      // Hanya close jika window dibuka oleh script (aman)
+      if (window.opener || window.name === "receipt") {
+        window.close();
       }
-    }
+    };
+
+    // Gunakan afterprint event
+    const handleAfterPrint = () => {
+      closeWindow();
+    };
+
+    window.addEventListener("afterprint", handleAfterPrint);
+    window.print(); // Trigger print
+
+    // Fallback: tutup setelah 8 detik jika afterprint tidak dipanggil
+    const fallbackTimeout = setTimeout(closeWindow, 8000);
+
+    return () => {
+      window.removeEventListener("afterprint", handleAfterPrint);
+      clearTimeout(fallbackTimeout);
+    };
   }, [order, isMobile]);
+
+  // 🔄 Redirect ke kasir setelah kembali dari app (mobile only)
+  useEffect(() => {
+    if (!isMobile || !order) return;
+
+    // Deteksi kembali dari background (misal: setelah buka app printer)
+    const handlePageShow = (event: PageTransitionEvent) => {
+      // Jika berasal dari disk cache (kembali dari app eksternal), redirect
+      if (event.persisted) {
+        const cashierUrl = `${window.location.origin}/kasir`;
+        window.location.href = cashierUrl;
+      }
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+
+    return () => {
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [isMobile, order]);
 
   // Error UI
   if (error) {
     return (
       <div className="receipt" style={{ padding: "20px", textAlign: "center", fontFamily: "monospace" }}>
         <p style={{ color: "red" }}>❌ {error}</p>
-        <button onClick={() => window.close()} style={{ marginTop: "10px", padding: "6px 12px" }}>
-          Tutup
-        </button>
+        {!isMobile && (
+          <button onClick={() => window.close()} style={{ marginTop: "10px", padding: "6px 12px" }}>
+            Tutup
+          </button>
+        )}
       </div>
     );
   }
 
-  // Loading UI
   if (!order) {
     return (
       <div className="receipt" style={{ padding: "20px", textAlign: "center", fontFamily: "monospace" }}>
@@ -120,7 +123,7 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
     );
   }
 
-  // Format item
+  // Formatter
   const formatItemLine = (qty: number, name: string, subtotal: number) => {
     const qtyStr = `${qty}x`.padEnd(4);
     const nameTruncated = name.length > 16 ? name.substring(0, 16) : name.padEnd(16);
@@ -138,13 +141,13 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
   };
 
   return (
-    <div className="receipt">
+    <div className="receipt" style={{ fontFamily: "monospace", maxWidth: "300px", margin: "0 auto", padding: "10px" }}>
       <pre className="title">{centerText("SOTO IBUK SENOPATI", 30)}</pre>
       <pre className="center-line">{centerText("Jl.Tulodong Atas 1 no 3A", 30)}</pre>
       <pre className="center-line">{centerText("Kebayoran Baru, Jakarta Selatan", 30)}</pre>
-      <hr />
+      <hr style={{ margin: "8px 0" }} />
 
-      <div className="meta">
+      <div className="meta" style={{ fontSize: "12px", marginBottom: "8px" }}>
         <div>Order: {order.order_number}</div>
         {order.customer_name && <div>Pelanggan: {order.customer_name}</div>}
         {order.table_number && <div>Meja: {order.table_number}</div>}
@@ -152,96 +155,93 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
         <div>{new Date(order.created_at).toLocaleString("id-ID")}</div>
       </div>
 
-      <hr />
+      <hr style={{ margin: "8px 0" }} />
 
       <div className="items">
         {order.items.map((item: any, idx: number) => (
-          <pre key={idx} className="item-line">
+          <pre key={idx} className="item-line" style={{ margin: "4px 0" }}>
             {formatItemLine(item.qty, item.product_name, item.subtotal)}
           </pre>
         ))}
       </div>
 
-      <hr />
+      <hr style={{ margin: "8px 0" }} />
 
-      <pre className="item-line">
+      <pre className="item-line" style={{ margin: "4px 0" }}>
         {"Sub".padEnd(18)} {formatPrice(order.subtotal)}
       </pre>
 
       {order.discount > 0 && (
-        <pre className="item-line">
+        <pre className="item-line" style={{ margin: "4px 0" }}>
           {"Disc".padEnd(18)} {formatPrice(order.discount)}
         </pre>
       )}
 
       {order.tax > 0 && (
-        <pre className="item-line">
+        <pre className="item-line" style={{ margin: "4px 0" }}>
           {"Tax".padEnd(18)} {formatPrice(order.tax)}
         </pre>
       )}
 
-      <pre className="item-line total">
+      <pre className="item-line total" style={{ margin: "6px 0", fontWeight: "bold" }}>
         {"TOTAL".padEnd(18)} {formatPrice(order.total)}
       </pre>
 
-      <hr />
+      <hr style={{ margin: "8px 0" }} />
 
-      <p className="center">
+      <p className="center" style={{ fontSize: "12px", margin: "6px 0" }}>
         Metode: <strong>{order.payment_method}</strong>
       </p>
 
-      <p className="center thank-you">Terima kasih 🙏</p>
+      <p className="center thank-you" style={{ margin: "10px 0", fontWeight: "bold" }}>
+        Terima kasih 🙏
+      </p>
 
-      {/* Tombol hanya di mobile */}
+      {/* Mobile action buttons */}
       {isMobile && (
-        <div className="print-actions" style={{ marginTop: "10px", textAlign: "center" }}>
-          {/* Cetak via Bluetooth Print App */}
+        <div className="print-actions" style={{ marginTop: "16px", textAlign: "center", display: "flex", flexDirection: "column", gap: "8px" }}>
           <a
             href={`my.bluetoothprint.scheme://${process.env.NEXT_PUBLIC_API_URL}/api/print/receipt/${orderId}`}
             style={{
-              display: "inline-block",
-              padding: "6px 12px",
+              padding: "8px 16px",
               fontSize: "14px",
               backgroundColor: "#2196F3",
               color: "white",
               textDecoration: "none",
-              borderRadius: "4px",
-              marginRight: "10px",
+              borderRadius: "6px",
             }}
           >
             📱 Cetak ke Printer
           </a>
 
-          {/* Opsional: simpan PDF via browser */}
           <button
             onClick={() => window.print()}
             style={{
-              padding: "6px 12px",
+              padding: "8px 16px",
               fontSize: "14px",
               backgroundColor: "#4CAF50",
               color: "white",
               border: "none",
-              borderRadius: "4px",
+              borderRadius: "6px",
               cursor: "pointer",
-              marginRight: "10px",
             }}
           >
             🖨️ Simpan PDF
           </button>
 
           <button
-            onClick={() => window.close()}
+            onClick={() => (window.location.href = "/kasir")}
             style={{
-              padding: "6px 12px",
+              padding: "8px 16px",
               fontSize: "14px",
-              backgroundColor: "#f44336",
+              backgroundColor: "#9E9E9E",
               color: "white",
               border: "none",
-              borderRadius: "4px",
+              borderRadius: "6px",
               cursor: "pointer",
             }}
           >
-            ✖ Tutup
+            ← Kembali ke Kasir
           </button>
         </div>
       )}
