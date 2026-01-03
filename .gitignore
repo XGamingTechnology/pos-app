@@ -15,17 +15,17 @@ target/
 *.out
 
 # Dependencies
-node_modules/
-venv/
 .venv/
-.env
-.env.local
-.env.*
+venv/
+node_modules/
+.julia/
+.zig/
 .mypy_cache/
 .pytest_cache/
-.coverage
+.gradle/
 coverage/
 htmlcov/
+*.coverage
 
 # Logs and temp files
 *.log
@@ -33,7 +33,12 @@ htmlcov/
 *.swp
 *.swo
 
-# Editors and IDEs
+# Environment
+.env
+.env.local
+.env.*
+
+# Editors
 .vscode/
 .idea/
 *.swp
@@ -43,7 +48,7 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Archives and compressed files
+# Compressed files
 *.zip
 *.gz
 *.tar
