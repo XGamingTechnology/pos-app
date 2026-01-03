@@ -14,8 +14,7 @@ export default async function ReportPage() {
   try {
     // ✅ GUNAKAN ENDPOINT YANG FLEKSIBEL UNTUK FILTER
     const url = new URL(`${API_URL}/api/admin/reports/orders`);
-    // Secara default, ambil semua order PAID
-    url.searchParams.append("period", "all");
+    url.searchParams.set("period", "all");
 
     const ordersRes = await fetch(url.toString(), {
       headers: {
