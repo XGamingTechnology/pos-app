@@ -26,7 +26,7 @@ type TopProduct = {
 type CurrentUser = {
   id: string;
   username: string;
-  role: "admin" | "cashier";
+  role: "admin" | "cashier" | "owner";
   backendToken: string | null;
 };
 
@@ -38,12 +38,15 @@ const PRODUCT_COLORS = ["#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "
 
 export default function ReportClient({ orders, currentUser, canExport }: { orders: Order[]; currentUser: CurrentUser; canExport: boolean }) {
   const [isPrinting, setIsPrinting] = useState(false);
-  const [dateFilter, setDateFilter] = useState<"today" | "7days" | "30days" | "all">("7days");
+  const [dateFilter, setDateFilter] = useState<"today" | "7days" | "30days" | "all" | "custom">("7days");
   const [methodFilter, setMethodFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [topProductsMode, setTopProductsMode] = useState<"qty" | "revenue">("qty");
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [showCustomDate, setShowCustomDate] = useState(false);
   const itemsPerPage = 10;
 
   // Fetch produk terlaris berdasarkan filter
@@ -52,7 +55,14 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
       if (!currentUser.backendToken) return;
 
       try {
-        const res = await fetch(`${API_URL}/api/admin/reports/top-products?period=${dateFilter}`, {
+        let url = `${API_URL}/api/admin/reports/top-products?`;
+        if (dateFilter === "custom" && startDate && endDate) {
+          url += `start=${startDate}&end=${endDate}`;
+        } else {
+          url += `period=${dateFilter}`;
+        }
+        
+        const res = await fetch(url, {
           headers: { Authorization: `Bearer ${currentUser.backendToken}` },
         });
         const data = await res.json();
@@ -63,7 +73,7 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
       }
     };
     fetchTopProducts();
-  }, [dateFilter, currentUser.backendToken]);
+  }, [dateFilter, startDate, endDate, currentUser.backendToken]);
 
   // Filter order PAID
   const paidOrders = orders.filter((o) => o.status === "PAID");
@@ -83,6 +93,13 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
     return orderDate.getDate() === today.getDate() && orderDate.getMonth() === today.getMonth() && orderDate.getFullYear() === today.getFullYear();
   };
 
+  const isBetweenDates = (dateStr: string, start: string, end: string) => {
+    const orderDate = new Date(dateStr);
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    return orderDate >= startDate && orderDate <= endDate;
+  };
+
   // Terapkan filter pada order
   const filteredOrders = paidOrders.filter((order) => {
     let dateMatch = true;
@@ -92,6 +109,8 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
       dateMatch = isWithinDays(order.created_at, 7);
     } else if (dateFilter === "30days") {
       dateMatch = isWithinDays(order.created_at, 30);
+    } else if (dateFilter === "custom" && startDate && endDate) {
+      dateMatch = isBetweenDates(order.created_at, startDate, endDate);
     }
 
     const methodMatch = methodFilter === "all" || order.payment_method === methodFilter;
@@ -113,13 +132,32 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   // Siapkan data grafik
   const getDailyData = () => {
     const daily: Record<string, { date: string; total: number; count: number }> = {};
-    const now = new Date();
-
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const key = date.toISOString().split("T")[0];
-      daily[key] = { date: key, total: 0, count: 0 };
+    
+    // For custom date range, calculate based on the selected range
+    if (dateFilter === "custom" && startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      // Create date range
+      const dateRange = [];
+      const currentDate = new Date(start);
+      while (currentDate <= end) {
+        const key = currentDate.toISOString().split("T")[0];
+        dateRange.push(key);
+        daily[key] = { date: key, total: 0, count: 0 };
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+    } else {
+      // For other periods, use the existing logic
+      const now = new Date();
+      const days = dateFilter === "7days" ? 7 : dateFilter === "30days" ? 30 : 7; // Default to 7 days
+      
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        const key = date.toISOString().split("T")[0];
+        daily[key] = { date: key, total: 0, count: 0 };
+      }
     }
 
     filteredOrders.forEach((order) => {
@@ -132,7 +170,11 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
 
     return Object.values(daily).map((d) => ({
       ...d,
-      label: new Date(d.date).toLocaleDateString("id-ID", { weekday: "short", day: "numeric" }),
+      label: new Date(d.date).toLocaleDateString("id-ID", { 
+        weekday: "short", 
+        day: "numeric", 
+        month: "short"
+      }),
     }));
   };
 
@@ -211,15 +253,47 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
             <label className="block text-xs font-medium text-gray-700 mb-1.5">Periode</label>
             <select
               value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value as any)}
+              onChange={(e) => {
+                const value = e.target.value as "today" | "7days" | "30days" | "all" | "custom";
+                setDateFilter(value);
+                if (value !== "custom") {
+                  setShowCustomDate(false);
+                } else {
+                  setShowCustomDate(true);
+                }
+              }}
               className="w-full px-3.5 py-2.5 text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
             >
               <option value="today">Hari Ini</option>
               <option value="7days">7 Hari Terakhir</option>
               <option value="30days">30 Hari Terakhir</option>
               <option value="all">Semua Waktu</option>
+              <option value="custom">Rentang Tanggal</option>
             </select>
           </div>
+
+          {showCustomDate && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Tanggal Mulai</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Tanggal Akhir</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1.5">Metode Pembayaran</label>
@@ -268,7 +342,25 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
           <SummaryCard label="Rata-rata/Transaksi" value={totalTransaksi === 0 ? "Rp 0" : formatCurrency(rataRataPerTransaksi)} icon="⚖️" />
           <SummaryCard
             label="Rata-rata/Hari"
-            value={dateFilter === "today" ? formatCurrency(totalOmzet) : dateFilter === "7days" ? formatCurrency(totalOmzet / 7) : dateFilter === "30days" ? formatCurrency(totalOmzet / 30) : "–"}
+            value={
+              dateFilter === "today" 
+                ? formatCurrency(totalOmzet) 
+                : dateFilter === "7days" 
+                  ? formatCurrency(totalOmzet / 7) 
+                  : dateFilter === "30days" 
+                    ? formatCurrency(totalOmzet / 30) 
+                    : dateFilter === "custom" && startDate && endDate
+                      ? (() => {
+                          const start = new Date(startDate);
+                          const end = new Date(endDate);
+                          const diffTime = Math.abs(end.getTime() - start.getTime());
+                          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+                          return formatCurrency(totalOmzet / diffDays);
+                        })()
+                      : dateFilter === "all"
+                        ? "–"
+                        : formatCurrency(totalOmzet / 7)
+            }
             icon="📅"
           />
         </div>
@@ -284,7 +376,9 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                   ? "📈 Omzet Harian (7 Hari Terakhir)" 
                   : dateFilter === "30days" 
                     ? "📈 Omzet Harian (30 Hari Terakhir)" 
-                    : "📈 Omzet Harian (Semua Waktu)"}
+                    : dateFilter === "custom" && startDate && endDate
+                      ? `📈 Omzet Harian (${startDate} - ${endDate})`
+                      : "📈 Omzet Harian (Semua Waktu)"}
             </h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -422,11 +516,14 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
+                      <Th>No</Th>
                       <Th>ID Order</Th>
+                      <Th>Tanggal</Th>
                       <Th>Pelanggan</Th>
-                      <Th>Produk</Th>
-                      <Th>Metode</Th>
+                      <Th>Produk Terjual</Th>
+                      <Th>Metode Pembayaran</Th>
                       <Th>Total</Th>
+                      <Th>Status</Th>
                       <Th>Aksi</Th>
                     </tr>
                   </thead>
