@@ -6,6 +6,7 @@ import Providers from "./providers";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap", // Add display: swap to prevent FOIT
 });
 
 export const metadata: Metadata = {

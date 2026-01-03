@@ -92,13 +92,13 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
       setTableNumber("");
       setOrderType("dine_in");
     }
-  }, [initialOrder]);
+  }, [initialOrder?.id]); // Only re-run when initialOrder.id changes to avoid infinite loop
 
   useEffect(() => {
     const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     setDarkMode(isDark);
     if (isDark) document.documentElement.classList.add("dark");
-  }, []);
+  }, []); // Add empty dependency array to run only once on mount
 
   const toggleDarkMode = () => {
     const newMode = !darkMode;
@@ -202,7 +202,6 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
       }
 
       if (editingOrderId) {
-        router.refresh();
         router.push(`/orders/${editingOrderId}`);
       } else {
         router.push("/orders");
@@ -242,7 +241,10 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
   // Ambil jumlah draft order
   useEffect(() => {
     const fetchDraftCount = async () => {
-      if (!user.backendToken) return;
+      if (!user.backendToken) {
+        setLoadingDraftCount(false);
+        return;
+      }
 
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders`, {
@@ -268,7 +270,7 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
     // Opsional: polling setiap 30 detik
     const interval = setInterval(fetchDraftCount, 30000);
     return () => clearInterval(interval);
-  }, [user.backendToken]);
+  }, [user.backendToken]); // Ensure backendToken dependency is properly tracked
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
