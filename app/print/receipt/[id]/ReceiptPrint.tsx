@@ -195,6 +195,24 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
       {/* Tombol hanya di mobile */}
       {isMobile && (
         <div className="print-actions" style={{ marginTop: "10px", textAlign: "center" }}>
+          {/* Cetak via Bluetooth Print App */}
+          <a
+            href={`my.bluetoothprint.scheme://${process.env.NEXT_PUBLIC_API_URL}/api/print/receipt/${orderId}`}
+            style={{
+              display: "inline-block",
+              padding: "6px 12px",
+              fontSize: "14px",
+              backgroundColor: "#2196F3",
+              color: "white",
+              textDecoration: "none",
+              borderRadius: "4px",
+              marginRight: "10px",
+            }}
+          >
+            📱 Cetak ke Printer
+          </a>
+
+          {/* Opsional: simpan PDF via browser */}
           <button
             onClick={() => window.print()}
             style={{
@@ -208,8 +226,9 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
               marginRight: "10px",
             }}
           >
-            🖨️ Cetak Struk
+            🖨️ Simpan PDF
           </button>
+
           <button
             onClick={() => window.close()}
             style={{
