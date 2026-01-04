@@ -49,6 +49,7 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
   });
   const [newCategory, setNewCategory] = useState({ name: "", color: "#6B7280" });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null); // ✅ Aktifkan edit kategori
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"products" | "categories">("products");
@@ -279,6 +280,53 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
       }
     } catch (err: any) {
       showNotification("error", "Terjadi kesalahan saat menambah kategori");
+    }
+  };
+
+  // ✅ SIMPAN PERUBAHAN KATEGORI
+  const saveCategory = async (category: Category) => {
+    if (!category.name.trim()) {
+      showNotification("error", "Nama kategori wajib diisi");
+      return;
+    }
+
+    try {
+      const oldName = categories.find((c) => c.id === category.id)?.name;
+      if (!oldName) return;
+
+      const res = await fetch(`${API_URL}/api/admin/product-categories/${encodeURIComponent(oldName)}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${currentUser.backendToken}`,
+        },
+        body: JSON.stringify({
+          newName: category.name.trim(),
+          color: category.color,
+        }),
+      });
+
+      if (res.ok) {
+        const fetchRes = await fetch(`${API_URL}/api/admin/product-categories`, {
+          headers: { Authorization: `Bearer ${currentUser.backendToken}` },
+        });
+        if (fetchRes.ok) {
+          const data = await fetchRes.json();
+          const updatedCategories = (data.data || []).map((cat: any, idx: number) => ({
+            id: `cat-${idx}-${cat.name}`,
+            name: cat.name,
+            color: cat.color || "#6B7280",
+          }));
+          setCategories(updatedCategories);
+          setEditingCategory(null);
+          showNotification("success", "✅ Kategori berhasil diperbarui!");
+        }
+      } else {
+        const err = await res.json();
+        showNotification("error", err.message || "Gagal memperbarui kategori");
+      }
+    } catch (err: any) {
+      showNotification("error", "Terjadi kesalahan saat memperbarui kategori");
     }
   };
 
@@ -653,15 +701,37 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
               <p className="text-slate-500">Belum ada kategori.</p>
             ) : (
               <div className="flex flex-wrap gap-3">
-                {categories.map((cat) => (
-                  <div key={cat.id} className="flex items-center gap-3 p-3 rounded-lg border" style={{ borderColor: cat.color }}>
-                    <span className="w-5 h-5 rounded-full" style={{ backgroundColor: cat.color }}></span>
-                    <span className="font-medium text-slate-900">{cat.name}</span>
-                    <button onClick={() => handleDeleteCategory(cat)} className="ml-auto p-1 text-red-600 hover:bg-red-50 rounded" title="Hapus">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+                {categories.map((cat) => {
+                  const isEditing = editingCategory?.id === cat.id;
+                  return (
+                    <div key={cat.id} className="flex items-center gap-3 p-3 rounded-lg border" style={{ borderColor: cat.color }}>
+                      <span className="w-5 h-5 rounded-full" style={{ backgroundColor: cat.color }}></span>
+
+                      {isEditing ? (
+                        <div className="flex items-center gap-2">
+                          <input type="text" value={editingCategory.name} onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })} className="px-2 py-1 border border-slate-300 rounded text-sm w-32" />
+                          <input type="color" value={editingCategory.color} onChange={(e) => setEditingCategory({ ...editingCategory, color: e.target.value })} className="w-8 h-8 cursor-pointer" />
+                          <button onClick={() => editingCategory && saveCategory(editingCategory)} className="p-1 bg-emerald-600 text-white rounded" title="Simpan">
+                            <CheckCircle className="h-3 w-3" />
+                          </button>
+                          <button onClick={() => setEditingCategory(null)} className="p-1 bg-slate-600 text-white rounded" title="Batal">
+                            <XCircle className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="font-medium text-slate-900">{cat.name}</span>
+                          <button onClick={() => setEditingCategory(cat)} className="p-1 text-emerald-600 hover:bg-emerald-50 rounded" title="Edit kategori">
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => handleDeleteCategory(cat)} className="ml-auto p-1 text-red-600 hover:bg-red-50 rounded" title="Hapus">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
