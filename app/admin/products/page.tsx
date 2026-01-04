@@ -9,14 +9,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 export default async function ProductsPage() {
   const session = await getServerSession(authOptions);
 
-  // Validasi session lebih awal
   if (!session?.user) {
     return redirect("/login");
   }
 
   const { id, username, role, backendToken } = session.user;
 
-  // Validasi properti wajib
   if (!id || !username || !role || !backendToken || role !== "admin") {
     return redirect("/login");
   }
@@ -25,23 +23,21 @@ export default async function ProductsPage() {
   let categories = [];
 
   try {
-    // Ambil semua produk
+    // Ambil produk
     const productsRes = await fetch(`${API_URL}/api/admin/products`, {
       headers: { Authorization: `Bearer ${backendToken}` },
       cache: "no-store",
     });
-
     if (productsRes.ok) {
       const data = await productsRes.json();
       products = Array.isArray(data.data) ? data.data : [];
     }
 
-    // Ambil daftar kategori unik
-    const categoriesRes = await fetch(`${API_URL}/api/admin/products/categories`, {
+    // ✅ Ambil kategori dari endpoint BARU
+    const categoriesRes = await fetch(`${API_URL}/api/admin/product-categories`, {
       headers: { Authorization: `Bearer ${backendToken}` },
       cache: "no-store",
     });
-
     if (categoriesRes.ok) {
       const data = await categoriesRes.json();
       categories = Array.isArray(data.data) ? data.data : [];

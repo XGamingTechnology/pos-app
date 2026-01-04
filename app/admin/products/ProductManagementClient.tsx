@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react"; // ✅ Tambahkan useMemo
-import { CheckCircle, XCircle, Package, Pencil, Trash2, Tag, Eye, EyeOff, Plus } from "lucide-react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { CheckCircle, XCircle, Package, Pencil, Trash2, Tag, Plus } from "lucide-react";
 
 type UserRole = "admin" | "cashier";
 
@@ -49,7 +49,6 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
   });
   const [newCategory, setNewCategory] = useState({ name: "", color: "#6B7280" });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [activeTab, setActiveTab] = useState<"products" | "categories">("products");
@@ -73,12 +72,12 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
     }
   }, [highlightNewId]);
 
-  // === FETCH KATEGORI ===
+  // === FETCH KATEGORI (ENDPOINT BARU) ===
   useEffect(() => {
     const fetchCategories = async () => {
       if (!currentUser.backendToken) return;
       try {
-        const res = await fetch(`${API_URL}/api/admin/products/categories-with-color`, {
+        const res = await fetch(`${API_URL}/api/admin/product-categories`, {
           headers: { Authorization: `Bearer ${currentUser.backendToken}` },
         });
         if (res.ok) {
@@ -102,7 +101,6 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
     let sortableProducts = [...products];
     if (sortConfig !== null) {
       sortableProducts.sort((a, b) => {
-        // Pastikan nilai tidak null/undefined
         const aValue = a[sortConfig.key];
         const bValue = b[sortConfig.key];
 
@@ -185,7 +183,6 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
         const updatedProducts = Array.isArray(productsData.data) ? productsData.data : [];
         setProducts(updatedProducts);
 
-        // ✅ Cari produk baru berdasarkan name & price (lebih aman)
         const newProductItem = updatedProducts.find((p: Product) => p.name === newProduct.name.trim() && p.price === price);
         if (newProductItem) {
           setHighlightNewId(newProductItem.id);
@@ -251,12 +248,15 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
     }
   };
 
-  // === KATEGORI ===
+  // === KATEGORI (ENDPOINT BARU) ===
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategory.name.trim()) return;
+    if (!newCategory.name.trim()) {
+      showNotification("error", "Nama kategori wajib diisi");
+      return;
+    }
     try {
-      const res = await fetch(`${API_URL}/api/admin/products/categories`, {
+      const res = await fetch(`${API_URL}/api/admin/product-categories`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -268,7 +268,8 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
         }),
       });
       if (res.ok) {
-        const newCat = { id: `new-${Date.now()}`, ...newCategory };
+        const result = await res.json();
+        const newCat = { id: `new-${Date.now()}`, ...result.data };
         setCategories([...categories, newCat]);
         setNewCategory({ name: "", color: "#6B7280" });
         showNotification("success", "✅ Kategori berhasil ditambahkan!");
@@ -284,13 +285,11 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
   const handleDeleteCategory = async (category: Category) => {
     if (!confirm(`Yakin ingin menghapus kategori "${category.name}"?`)) return;
     try {
-      const res = await fetch(`${API_URL}/api/admin/products/categories`, {
+      const res = await fetch(`${API_URL}/api/admin/product-categories/${encodeURIComponent(category.name)}`, {
         method: "DELETE",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${currentUser.backendToken}`,
         },
-        body: JSON.stringify({ name: category.name }),
       });
       if (res.ok) {
         setCategories(categories.filter((c) => c.name !== category.name));
@@ -444,7 +443,7 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
 
                       return (
                         <tr key={product.id} ref={isHighlighted ? newProductRef : null} className={`hover:bg-slate-50 transition-colors ${isHighlighted ? "bg-emerald-50" : ""}`}>
-                          {/* Kolom Produk (Nama & Kode) */}
+                          {/* Kolom Produk */}
                           <td className="px-6 py-4">
                             {isEditing ? (
                               <div className="space-y-2">
