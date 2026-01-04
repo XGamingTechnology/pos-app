@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { CheckCircle, XCircle, Package, Pencil, Trash2, Tag, Plus } from "lucide-react";
+import { CheckCircle, XCircle, Package, Pencil, Trash2, Tag, Plus, ArrowUp, ArrowDown } from "lucide-react";
 
 type UserRole = "admin" | "cashier";
 
@@ -22,6 +22,7 @@ type Category = {
   id: string;
   name: string;
   color: string;
+  sort_order: number; // ✅ Tambahkan sort_order
 };
 
 type CurrentUser = {
@@ -49,10 +50,10 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
   });
   const [newCategory, setNewCategory] = useState({ name: "", color: "#6B7280" });
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null); // ✅ Aktifkan edit kategori
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<"products" | "categories">("products");
+  const [activeTab, setActiveTab] = useState<"products" | "categories" | "sort-order">("products"); // ✅ Tambahkan sort-order
   const [highlightNewId, setHighlightNewId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{ key: keyof Product; direction: "asc" | "desc" } | null>(null);
@@ -87,8 +88,11 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
             id: `cat-${idx}-${cat.name}`,
             name: cat.name,
             color: cat.color || "#6B7280",
+            sort_order: cat.sort_order || 999, // ✅ Ambil sort_order
           }));
-          setCategories(categoriesWithId);
+          // Urutkan berdasarkan sort_order
+          const sortedCats = categoriesWithId.sort((a: Category, b: Category) => a.sort_order - b.sort_order);
+          setCategories(sortedCats);
         }
       } catch (err) {
         showNotification("error", "Gagal memuat daftar kategori");
@@ -270,7 +274,7 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
       });
       if (res.ok) {
         const result = await res.json();
-        const newCat = { id: `new-${Date.now()}`, ...result.data };
+        const newCat = { id: `new-${Date.now()}`, ...result.data, sort_order: 999 };
         setCategories([...categories, newCat]);
         setNewCategory({ name: "", color: "#6B7280" });
         showNotification("success", "✅ Kategori berhasil ditambahkan!");
@@ -283,7 +287,7 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
     }
   };
 
-  // ✅ SIMPAN PERUBAHAN KATEGORI
+  // ✅ SIMPAN PERUBAHAN KATEGORI (termasuk sort_order)
   const saveCategory = async (category: Category) => {
     if (!category.name.trim()) {
       showNotification("error", "Nama kategori wajib diisi");
@@ -303,6 +307,7 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
         body: JSON.stringify({
           newName: category.name.trim(),
           color: category.color,
+          sort_order: category.sort_order, // ✅ Kirim sort_order
         }),
       });
 
@@ -316,8 +321,10 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
             id: `cat-${idx}-${cat.name}`,
             name: cat.name,
             color: cat.color || "#6B7280",
+            sort_order: cat.sort_order || 999,
           }));
-          setCategories(updatedCategories);
+          const sortedCats = updatedCategories.sort((a: Category, b: Category) => a.sort_order - b.sort_order);
+          setCategories(sortedCats);
           setEditingCategory(null);
           showNotification("success", "✅ Kategori berhasil diperbarui!");
         }
@@ -352,6 +359,53 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
     }
   };
 
+  // ✅ PINDAH URUTAN
+  const moveCategory = (id: string, direction: "up" | "down") => {
+    const index = categories.findIndex((c) => c.id === id);
+    if (direction === "up" && index > 0) {
+      const newCategories = [...categories];
+      [newCategories[index - 1], newCategories[index]] = [newCategories[index], newCategories[index - 1]];
+      // Update sort_order
+      newCategories[index - 1].sort_order = index;
+      newCategories[index].sort_order = index + 1;
+      setCategories(newCategories);
+    } else if (direction === "down" && index < categories.length - 1) {
+      const newCategories = [...categories];
+      [newCategories[index], newCategories[index + 1]] = [newCategories[index + 1], newCategories[index]];
+      newCategories[index].sort_order = index + 1;
+      newCategories[index + 1].sort_order = index + 2;
+      setCategories(newCategories);
+    }
+  };
+
+  // ✅ SIMPAN URUTAN
+  const saveOrder = async () => {
+    try {
+      const payload = categories.map((cat) => ({
+        name: cat.name,
+        sort_order: cat.sort_order,
+      }));
+
+      const res = await fetch(`${API_URL}/api/admin/product-categories/batch-update-order`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${currentUser.backendToken}`,
+        },
+        body: JSON.stringify({ categories: payload }),
+      });
+
+      if (res.ok) {
+        showNotification("success", "✅ Urutan kategori berhasil disimpan!");
+      } else {
+        const err = await res.json();
+        showNotification("error", err.message || "Gagal menyimpan urutan");
+      }
+    } catch (err: any) {
+      showNotification("error", "Terjadi kesalahan saat menyimpan urutan");
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       {/* Notifikasi */}
@@ -374,6 +428,9 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
         </button>
         <button onClick={() => setActiveTab("categories")} className={`px-4 py-2 font-medium ${activeTab === "categories" ? "text-emerald-700 border-b-2 border-emerald-700" : "text-slate-500 hover:text-slate-700"}`}>
           Kategori
+        </button>
+        <button onClick={() => setActiveTab("sort-order")} className={`px-4 py-2 font-medium ${activeTab === "sort-order" ? "text-emerald-700 border-b-2 border-emerald-700" : "text-slate-500 hover:text-slate-700"}`}>
+          🔢 Urutkan
         </button>
       </div>
 
@@ -711,6 +768,18 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
                         <div className="flex items-center gap-2">
                           <input type="text" value={editingCategory.name} onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })} className="px-2 py-1 border border-slate-300 rounded text-sm w-32" />
                           <input type="color" value={editingCategory.color} onChange={(e) => setEditingCategory({ ...editingCategory, color: e.target.value })} className="w-8 h-8 cursor-pointer" />
+                          <input
+                            type="number"
+                            value={editingCategory.sort_order}
+                            onChange={(e) =>
+                              setEditingCategory({
+                                ...editingCategory,
+                                sort_order: parseInt(e.target.value) || 0,
+                              })
+                            }
+                            className="w-16 px-1 py-1 border rounded text-sm"
+                            min="1"
+                          />
                           <button onClick={() => editingCategory && saveCategory(editingCategory)} className="p-1 bg-emerald-600 text-white rounded" title="Simpan">
                             <CheckCircle className="h-3 w-3" />
                           </button>
@@ -736,6 +805,37 @@ export default function ProductManagementClient({ currentUser, initialProducts, 
             )}
           </div>
         </>
+      )}
+
+      {/* === TAB URUTAN === */}
+      {activeTab === "sort-order" && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-slate-900">Atur Urutan Kategori</h2>
+            <button onClick={saveOrder} className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 flex items-center gap-1">
+              <CheckCircle className="w-4 h-4" />
+              Simpan Urutan
+            </button>
+          </div>
+          <p className="text-slate-600 mb-4">Klik panah untuk mengatur urutan kategori.</p>
+          <div className="space-y-3">
+            {categories.map((cat, index) => (
+              <div key={cat.id} className="flex items-center gap-3 p-3 border rounded-lg" style={{ backgroundColor: cat.color + "20" }}>
+                <span className="w-6 h-6 flex items-center justify-center bg-slate-200 rounded font-medium">{index + 1}</span>
+                <span className="w-5 h-5 rounded-full" style={{ backgroundColor: cat.color }}></span>
+                <span className="font-medium text-slate-900">{cat.name}</span>
+                <div className="ml-auto flex gap-1">
+                  <button onClick={() => moveCategory(cat.id, "up")} disabled={index === 0} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30" title="Naik">
+                    <ArrowUp className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => moveCategory(cat.id, "down")} disabled={index === categories.length - 1} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30" title="Turun">
+                    <ArrowDown className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
