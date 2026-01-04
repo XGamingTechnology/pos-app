@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -32,9 +32,20 @@ type User = {
   backendRefreshToken: string | null;
 };
 
-// ✅ Tambahkan `color` di tipe Product
-type Product = { id: string; name: string; price: number; category: string; color?: string };
-type CartItem = { id: string; name: string; price: number; qty: number };
+type Product = {
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  color?: string;
+};
+
+type CartItem = {
+  id: string;
+  name: string;
+  price: number;
+  qty: number;
+};
 
 type Props = {
   user: User;
@@ -55,11 +66,44 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
   const [category, setCategory] = useState("all");
   const [darkMode, setDarkMode] = useState(false);
   const [cartAnimationKey, setCartAnimationKey] = useState(0);
+  const [draftOrderCount, setDraftOrderCount] = useState(0);
+  const [loadingDraftCount, setLoadingDraftCount] = useState(true);
+
+  // Ambil jumlah draft order
+  useEffect(() => {
+    const fetchDraftCount = async () => {
+      if (!user.backendToken) {
+        setLoadingDraftCount(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders`, {
+          headers: {
+            Authorization: `Bearer ${user.backendToken}`,
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const drafts = data.data?.filter((order: any) => order.status === "DRAFT") || [];
+          setDraftOrderCount(drafts.length);
+        }
+      } catch (err) {
+        console.error("Gagal memuat jumlah draft order:", err);
+      } finally {
+        setLoadingDraftCount(false);
+      }
+    };
+
+    fetchDraftCount();
+    const interval = setInterval(fetchDraftCount, 30000);
+    return () => clearInterval(interval);
+  }, [user.backendToken]);
 
   useEffect(() => {
     if (initialOrder) {
       const itemMap = new Map<string, CartItem>();
-
       initialOrder.items.forEach((item) => {
         if (itemMap.has(item.product_id)) {
           const existing = itemMap.get(item.product_id)!;
@@ -92,31 +136,39 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
       setTableNumber("");
       setOrderType("dine_in");
     }
-  }, [initialOrder?.id]); // Only re-run when initialOrder.id changes to avoid infinite loop
+  }, [initialOrder?.id]);
 
   useEffect(() => {
     const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     setDarkMode(isDark);
     if (isDark) document.documentElement.classList.add("dark");
-  }, []); // Add empty dependency array to run only once on mount
+  }, []);
 
   const toggleDarkMode = () => {
     const newMode = !darkMode;
     setDarkMode(newMode);
     document.documentElement.classList.toggle("dark", newMode);
   };
-  const categoryColorMap = new Map<string, string>();
-  products.forEach((p) => {
-    if (p.category && p.color) {
-      if (!categoryColorMap.has(p.category)) {
-        categoryColorMap.set(p.category, p.color);
+
+  // ✅ Kategori unik dengan warna representatif
+  const categoryColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+    products.forEach((p) => {
+      if (p.category && p.color && !map.has(p.category)) {
+        map.set(p.category, p.color);
       }
-    }
-  });
+    });
+    return map;
+  }, [products]);
 
-  const categories = ["all", ...Array.from(new Set(products.map((p) => p.category)))];
+  const categories = useMemo(() => {
+    const uniqueCategories = Array.from(new Set(products.map((p) => p.category)));
+    return ["all", ...uniqueCategories];
+  }, [products]);
 
-  const filteredProducts = products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) && (category === "all" || p.category === category));
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase()) && (category === "all" || p.category === category));
+  }, [products, search, category]);
 
   const addToCart = (p: Product) => {
     setCartItems((prev) => {
@@ -233,44 +285,16 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
     return "#6B7280"; // gray-500
   };
 
-  // Tambahkan di dalam fungsi CashierClient, setelah useState lainnya
+  // ✅ Hitung kolom grid berdasarkan lebar layar
+  const getGridColumns = () => {
+    if (typeof window === "undefined") return "repeat(auto-fill, minmax(120px, 1fr))";
 
-  const [draftOrderCount, setDraftOrderCount] = useState(0);
-  const [loadingDraftCount, setLoadingDraftCount] = useState(true);
-
-  // Ambil jumlah draft order
-  useEffect(() => {
-    const fetchDraftCount = async () => {
-      if (!user.backendToken) {
-        setLoadingDraftCount(false);
-        return;
-      }
-
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/orders`, {
-          headers: {
-            Authorization: `Bearer ${user.backendToken}`,
-          },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const drafts = data.data?.filter((order: any) => order.status === "DRAFT") || [];
-          setDraftOrderCount(drafts.length);
-        }
-      } catch (err) {
-        console.error("Gagal memuat jumlah draft order:", err);
-      } finally {
-        setLoadingDraftCount(false);
-      }
-    };
-
-    fetchDraftCount();
-
-    // Opsional: polling setiap 30 detik
-    const interval = setInterval(fetchDraftCount, 30000);
-    return () => clearInterval(interval);
-  }, [user.backendToken]); // Ensure backendToken dependency is properly tracked
+    const width = window.innerWidth;
+    if (width < 640) return "repeat(auto-fill, minmax(120px, 1fr))"; // sm
+    if (width < 768) return "repeat(auto-fill, minmax(140px, 1fr))"; // md
+    if (width < 1024) return "repeat(auto-fill, minmax(160px, 1fr))"; // lg
+    return "repeat(auto-fill, minmax(180px, 1fr))"; // xl+
+  };
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
@@ -434,7 +458,6 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
 
           <div className="flex items-center gap-4">
             <nav className="hidden md:flex items-center gap-2">
-              {/* Dashboard Utama — selalu muncul */}
               <a
                 href="https://06ns6l3d-3000.asse.devtunnels.ms"
                 target="_blank"
@@ -445,7 +468,6 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
                 🏠 Dashboard
               </a>
 
-              {/* Menu Order dengan Badge */}
               <Link
                 href="/orders"
                 className={`px-3 py-1.5 text-sm rounded-lg relative flex items-center gap-1 transition ${
@@ -458,12 +480,10 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
                 )}
               </Link>
 
-              {/* Laporan — selalu muncul */}
               <Link href="/report" className="px-3 py-1.5 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-100 transition">
                 📊 Laporan
               </Link>
 
-              {/* Admin — HANYA JIKA ROLE = "admin" */}
               {user.role === "admin" && (
                 <Link
                   href="/admin"
@@ -528,66 +548,66 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
             />
           </div>
 
-          {/* ✅ Tombol kategori dengan warna dinamis (inline style) */}
-          <div className="flex gap-2 mb-4 md:mb-5 overflow-x-auto pb-1">
-            {categories.map((cat) => {
-              const isActive = category === cat;
+          {/* ✅ KATEGORI: RESPONSIVE HORIZONTAL SCROLL */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">Kategori</h2>
+              {categories.length > 6 && <span className="text-xs text-gray-500 dark:text-gray-400">Geser untuk lihat semua</span>}
+            </div>
 
-              if (cat === "all") {
+            <div
+              className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide"
+              style={{
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
+            >
+              {categories.map((cat) => {
+                const isActive = category === cat;
+                let bgColor = "";
+                let textColor = "";
+
+                if (cat === "all") {
+                  bgColor = isActive ? "bg-emerald-600" : "bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600";
+                  textColor = isActive ? "text-white" : "text-gray-700 dark:text-gray-300";
+                } else {
+                  const categoryColor = categoryColorMap.get(cat) || "#6B7280";
+                  bgColor = isActive ? categoryColor : "bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600";
+                  textColor = isActive ? "text-white" : "text-gray-700 dark:text-gray-300";
+                }
+
                 return (
-                  <button
-                    key={`category-${cat}`}
-                    onClick={() => setCategory(cat)}
-                    className={`px-3 py-1.5 md:px-4 md:py-1.5 rounded-full text-xs md:text-sm font-medium whitespace-nowrap transition ${
-                      isActive ? "bg-emerald-600 text-white" : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
-                    }`}
-                  >
-                    Semua
+                  <button key={`category-${cat}`} onClick={() => setCategory(cat)} className={`px-3 py-1.5 min-w-[70px] rounded-full text-xs font-medium whitespace-nowrap transition hover:opacity-90 ${bgColor} ${textColor}`}>
+                    {cat === "all" ? "Semua" : cat}
                   </button>
                 );
-              }
-
-              // Ambil warna representatif untuk kategori ini
-              const categoryColor = categoryColorMap.get(cat) || "#6B7280"; // fallback ke gray-500
-
-              return (
-                <button
-                  key={`category-${cat}`}
-                  onClick={() => setCategory(cat)}
-                  // Gunakan inline style untuk warna aktif
-                  style={{
-                    backgroundColor: isActive ? categoryColor : undefined,
-                    color: isActive ? "white" : undefined,
-                  }}
-                  className={`px-3 py-1.5 md:px-4 md:py-1.5 rounded-full text-xs md:text-sm font-medium whitespace-nowrap transition ${
-                    isActive
-                      ? "" // warna diatur via inline style
-                      : "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600"
-                  }`}
-                >
-                  {cat}
-                </button>
-              );
-            })}
+              })}
+            </div>
           </div>
 
+          {/* ✅ PRODUK: GRID RESPONSIF DINAMIS */}
           {filteredProducts.length === 0 ? (
             <div className="text-center py-10">
               <p className="text-gray-500 dark:text-gray-400">Tidak ada produk ditemukan</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4">
+            <div
+              className="grid gap-3 md:gap-4"
+              style={{
+                gridTemplateColumns: getGridColumns(),
+                minHeight: "400px",
+              }}
+            >
               {filteredProducts.map((product) => (
                 <button
                   key={product.id}
                   onClick={() => addToCart(product)}
-                  // ✅ WARNA DARI DATABASE → INLINE STYLE
                   style={{
                     backgroundColor: getBackgroundColor(product.color),
                   }}
-                  className="text-white rounded-xl p-3 md:p-4 text-left shadow-sm hover:shadow-md transition border border-transparent hover:border-white dark:hover:border-gray-300 animate-fadeIn"
+                  className="text-white rounded-xl p-3 md:p-4 text-left shadow-sm hover:shadow-md transition border border-transparent hover:border-white/20 dark:hover:border-gray-300/30 animate-fadeIn group"
                 >
-                  <p className="font-semibold text-xs md:text-sm leading-tight">{product.name}</p>
+                  <p className="font-semibold text-xs md:text-sm leading-tight line-clamp-2 group-hover:opacity-90">{product.name}</p>
                   <p className="font-bold mt-1 text-sm">Rp {product.price.toLocaleString("id-ID")}</p>
                 </button>
               ))}
@@ -622,6 +642,19 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
         }
         .animate-fadeInUp {
           animation: fadeInUp 0.3s ease-out forwards;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
         }
       `}</style>
     </div>
