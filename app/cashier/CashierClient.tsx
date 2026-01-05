@@ -68,6 +68,7 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
   const [cartAnimationKey, setCartAnimationKey] = useState(0);
   const [draftOrderCount, setDraftOrderCount] = useState(0);
   const [loadingDraftCount, setLoadingDraftCount] = useState(true);
+  const [showCart, setShowCart] = useState(false); // ✅ untuk mobile
 
   // Ambil jumlah draft order
   useEffect(() => {
@@ -288,16 +289,18 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
   // ✅ Hitung kolom grid berdasarkan lebar layar
   const getGridColumns = () => {
     if (typeof window === "undefined") return "repeat(auto-fill, minmax(120px, 1fr))";
-
     const width = window.innerWidth;
-    if (width < 640) return "repeat(auto-fill, minmax(120px, 1fr))"; // sm
-    if (width < 768) return "repeat(auto-fill, minmax(140px, 1fr))"; // md
-    if (width < 1024) return "repeat(auto-fill, minmax(160px, 1fr))"; // lg
-    return "repeat(auto-fill, minmax(180px, 1fr))"; // xl+
+    if (width < 640) return "repeat(2, 1fr)";
+    if (width < 768) return "repeat(3, 1fr)";
+    if (width < 1024) return "repeat(4, 1fr)";
+    return "repeat(5, 1fr)";
   };
 
+  // ✅ Jumlah kategori yang ditampilkan di desktop
+  const maxVisibleCategories = 6;
+
   return (
-    <div className="flex flex-col md:flex-row h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
+    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
       {/* Mobile cart bar */}
       {cartItems.length > 0 && (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-10 bg-white dark:bg-gray-800 border-t dark:border-gray-700 shadow-lg">
@@ -305,7 +308,7 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
             <span className="text-sm font-medium">
               {cartItems.length} item • Rp {total.toLocaleString("id-ID")}
             </span>
-            <button onClick={() => router.push("/cart")} className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm">
+            <button onClick={() => setShowCart(true)} className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm">
               Lihat Keranjang
             </button>
           </div>
@@ -313,7 +316,14 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
       )}
 
       {/* Sidebar Cart — Desktop only */}
-      <aside className="hidden md:flex md:w-80 lg:w-96 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex-col transition-colors duration-200">
+      <aside className={`${showCart ? "fixed inset-0 z-20 bg-black/50" : "hidden"} md:flex md:w-80 lg:w-96 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex-col transition-colors duration-200`}>
+        {showCart && (
+          <div className="md:hidden p-4 text-right">
+            <button onClick={() => setShowCart(false)} className="text-gray-500 hover:text-gray-700">
+              ✕ Tutup
+            </button>
+          </div>
+        )}
         <div className="p-4 border-b dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20 transition-colors duration-200">
           <div className="flex justify-between items-center">
             <div>
@@ -548,20 +558,11 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
             />
           </div>
 
-          {/* ✅ KATEGORI: RESPONSIVE HORIZONTAL SCROLL */}
+          {/* ✅ KATEGORI: RESPONSIF DENGAN GRID */}
           <div className="mb-5">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300">Kategori</h2>
-              {categories.length > 6 && <span className="text-xs text-gray-500 dark:text-gray-400">Geser untuk lihat semua</span>}
-            </div>
-
-            <div
-              className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide"
-              style={{
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-              }}
-            >
+            <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Kategori</h2>
+            {/* Desktop: grid kategori */}
+            <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-2">
               {categories.map((cat) => {
                 const isActive = category === cat;
                 let bgColor = "";
@@ -577,11 +578,29 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
                 }
 
                 return (
-                  <button key={`category-${cat}`} onClick={() => setCategory(cat)} className={`px-3 py-1.5 min-w-[70px] rounded-full text-xs font-medium whitespace-nowrap transition hover:opacity-90 ${bgColor} ${textColor}`}>
+                  <button key={`category-${cat}`} onClick={() => setCategory(cat)} className={`px-3 py-2 text-xs font-medium rounded-lg transition hover:opacity-90 ${bgColor} ${textColor}`}>
                     {cat === "all" ? "Semua" : cat}
                   </button>
                 );
               })}
+            </div>
+
+            {/* Mobile: dropdown */}
+            <div className="md:hidden">
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              >
+                <option value="all">Semua Kategori</option>
+                {categories
+                  .filter((c) => c !== "all")
+                  .map((cat) => (
+                    <option key={`mobile-category-${cat}`} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+              </select>
             </div>
           </div>
 
@@ -595,7 +614,6 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
               className="grid gap-3 md:gap-4"
               style={{
                 gridTemplateColumns: getGridColumns(),
-                minHeight: "400px",
               }}
             >
               {filteredProducts.map((product) => (
@@ -642,13 +660,6 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
         }
         .animate-fadeInUp {
           animation: fadeInUp 0.3s ease-out forwards;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
         }
         .line-clamp-2 {
           display: -webkit-box;
