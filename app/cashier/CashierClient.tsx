@@ -68,7 +68,6 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
   const [cartAnimationKey, setCartAnimationKey] = useState(0);
   const [draftOrderCount, setDraftOrderCount] = useState(0);
   const [loadingDraftCount, setLoadingDraftCount] = useState(true);
-  const [showCart, setShowCart] = useState(false); // ✅ untuk mobile
 
   // Ambil jumlah draft order
   useEffect(() => {
@@ -289,349 +288,324 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
   // ✅ Hitung kolom grid berdasarkan lebar layar
   const getGridColumns = () => {
     if (typeof window === "undefined") return "repeat(auto-fill, minmax(120px, 1fr))";
-    const width = window.innerWidth;
-    if (width < 640) return "repeat(2, 1fr)";
-    if (width < 768) return "repeat(3, 1fr)";
-    if (width < 1024) return "repeat(4, 1fr)";
-    return "repeat(5, 1fr)";
-  };
 
-  // ✅ Jumlah kategori yang ditampilkan di desktop
-  const maxVisibleCategories = 6;
+    const width = window.innerWidth;
+    if (width < 640) return "repeat(auto-fill, minmax(120px, 1fr))"; // sm
+    if (width < 768) return "repeat(auto-fill, minmax(140px, 1fr))"; // md
+    if (width < 1024) return "repeat(auto-fill, minmax(160px, 1fr))"; // lg
+    return "repeat(auto-fill, minmax(180px, 1fr))"; // xl+
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200">
-      {/* Mobile cart bar */}
-      {cartItems.length > 0 && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-10 bg-white dark:bg-gray-800 border-t dark:border-gray-700 shadow-lg">
-          <div className="p-3 flex justify-between items-center">
-            <span className="text-sm font-medium">
-              {cartItems.length} item • Rp {total.toLocaleString("id-ID")}
-            </span>
-            <button onClick={() => setShowCart(true)} className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm">
-              Lihat Keranjang
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Sidebar Cart — Desktop only */}
-      <aside className={`${showCart ? "fixed inset-0 z-20 bg-black/50" : "hidden"} md:flex md:w-80 lg:w-96 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex-col transition-colors duration-200`}>
-        {showCart && (
-          <div className="md:hidden p-4 text-right">
-            <button onClick={() => setShowCart(false)} className="text-gray-500 hover:text-gray-700">
-              ✕ Tutup
-            </button>
-          </div>
-        )}
-        <div className="p-4 border-b dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20 transition-colors duration-200">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium uppercase tracking-wider">{isEditing ? "Edit Order" : "Order"}</p>
-              <p className="font-bold text-emerald-800 dark:text-emerald-300">{isEditing ? "Sedang Mengedit" : "Draft"}</p>
-            </div>
-            {cartItems.length > 0 && <span className="bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">{cartItems.length}</span>}
-          </div>
+      {/* Header (Navbar) */}
+      <header className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm transition-colors duration-200">
+        <div className="flex items-center gap-3">
+          <h1 className="font-bold text-lg text-gray-800 dark:text-gray-200">POS Kasir</h1>
         </div>
 
-        <div className="p-4 space-y-4 border-b dark:border-gray-700">
-          <div>
-            <label htmlFor="customerName" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Nama Pelanggan
-            </label>
-            <input
-              id="customerName"
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Contoh: Budi"
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="orderType" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-              Tipe Order *
-            </label>
-            <select
-              id="orderType"
-              value={orderType}
-              onChange={(e) => setOrderType(e.target.value as "dine_in" | "takeaway")}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        <div className="flex items-center gap-4">
+          <nav className="hidden md:flex items-center gap-2">
+            <a
+              href="https://06ns6l3d-3000.asse.devtunnels.ms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-100 transition flex items-center gap-1"
+              title="Kembali ke Dashboard Utama"
             >
-              <option value="dine_in">Makan di Tempat</option>
-              <option value="takeaway">Bawa Pulang</option>
-            </select>
-          </div>
+              🏠 Dashboard
+            </a>
 
-          {orderType === "dine_in" && (
-            <div>
-              <label htmlFor="tableNumber" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                Nomor Meja *
-              </label>
-              <select
-                id="tableNumber"
-                value={tableNumber}
-                onChange={(e) => setTableNumber(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              >
-                <option value="">Pilih Meja</option>
-                {[...Array(30)].map((_, i) => (
-                  <option key={i + 1} value={String(i + 1)}>
-                    Meja {i + 1}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
+            <Link
+              href="/orders"
+              className={`px-3 py-1.5 text-sm rounded-lg relative flex items-center gap-1 transition ${
+                pathname === "/orders" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              🧾 Order
+              {!loadingDraftCount && draftOrderCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full animate-pulse">{draftOrderCount}</span>}
+            </Link>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {cartItems.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 dark:text-gray-500">
-              <p className="text-sm">🛒 Keranjang masih kosong</p>
-            </div>
-          ) : (
-            <div key={cartAnimationKey}>
-              {cartItems.map((item) => (
-                <div key={item.id} className="flex justify-between items-center border-b dark:border-gray-700 pb-2 animate-fadeInUp">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">{item.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Rp {item.price.toLocaleString("id-ID")}</p>
-                  </div>
-                  <div className="flex items-center gap-2 ml-2">
-                    <button
-                      onClick={() => decreaseQty(item.id)}
-                      className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition"
-                      disabled={item.qty <= 1}
-                    >
-                      −
-                    </button>
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.qty}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (!isNaN(val) && val > 0) {
-                          setCartItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, qty: val } : i)));
-                        }
-                      }}
-                      className="w-12 text-center text-sm font-medium bg-transparent border border-gray-300 dark:border-gray-600 rounded"
-                    />
-                    <button
-                      onClick={() => increaseQty(item.id)}
-                      className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition"
-                    >
-                      +
-                    </button>
-                    <button onClick={() => removeItem(item.id)} className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" aria-label="Hapus item">
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+            <Link href="/report" className="px-3 py-1.5 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-100 transition">
+              📊 Laporan
+            </Link>
 
-        <div className="border-t dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800 transition-colors duration-200">
-          <div className="flex justify-between font-bold text-gray-800 dark:text-gray-200 text-lg">
-            <span>Total</span>
-            <span className="text-emerald-700 dark:text-emerald-400">Rp {total.toLocaleString("id-ID")}</span>
-          </div>
-
-          <button
-            onClick={saveOrder}
-            disabled={cartItems.length === 0}
-            className={`w-full mt-3 py-3 rounded-lg font-semibold text-white transition ${
-              cartItems.length === 0 ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] dark:bg-emerald-700 dark:hover:bg-emerald-600"
-            }`}
-          >
-            💾 {isEditing ? "Perbarui Order" : "Simpan Order"}
-          </button>
-
-          {isEditing && (
-            <button onClick={cancelEdit} className="w-full mt-2 text-gray-600 hover:text-gray-900 text-sm">
-              Batal Edit
-            </button>
-          )}
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        <header className="bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-4 py-3 flex items-center justify-between sticky top-0 z-10 shadow-sm transition-colors duration-200">
-          <div className="flex items-center gap-3">
-            <h1 className="font-bold text-lg text-gray-800 dark:text-gray-200">POS Kasir</h1>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <nav className="hidden md:flex items-center gap-2">
-              <a
-                href="https://06ns6l3d-3000.asse.devtunnels.ms"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-3 py-1.5 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-100 transition flex items-center gap-1"
-                title="Kembali ke Dashboard Utama"
-              >
-                🏠 Dashboard
-              </a>
-
+            {user.role === "admin" && (
               <Link
-                href="/orders"
-                className={`px-3 py-1.5 text-sm rounded-lg relative flex items-center gap-1 transition ${
-                  pathname === "/orders" ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300" : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
+                href="/admin"
+                className="px-3 py-1.5 text-sm rounded-lg text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-800 dark:hover:text-purple-300 transition flex items-center gap-1"
               >
-                🧾 Order
-                {!loadingDraftCount && draftOrderCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full animate-pulse">{draftOrderCount}</span>
-                )}
+                👤 Admin
               </Link>
+            )}
+          </nav>
 
-              <Link href="/report" className="px-3 py-1.5 text-sm rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-100 transition">
-                📊 Laporan
-              </Link>
-
-              {user.role === "admin" && (
-                <Link
-                  href="/admin"
-                  className="px-3 py-1.5 text-sm rounded-lg text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-800 dark:hover:text-purple-300 transition flex items-center gap-1"
-                >
-                  👤 Admin
-                </Link>
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={toggleDarkMode}
+              className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {darkMode ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fillRule="evenodd"
+                    d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
+                </svg>
               )}
-            </nav>
+            </button>
 
             <div className="flex items-center gap-2.5">
-              <button
-                onClick={toggleDarkMode}
-                className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
-                title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-              >
-                {darkMode ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" />
-                  </svg>
-                )}
-              </button>
-
-              <div className="flex items-center gap-2.5">
-                <div className="hidden sm:flex flex-col items-end text-right">
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{user.username}</p>
-                  <div className="flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">Online</span>
-                  </div>
+              <div className="hidden sm:flex flex-col items-end text-right">
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{user.username}</p>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Online</span>
                 </div>
-
-                <button onClick={handleLogout} className="p-2 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 transition" title="Keluar">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path
-                      fillRule="evenodd"
-                      d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
               </div>
+
+              <button onClick={handleLogout} className="p-2 rounded-full bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 transition" title="Keluar">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
+                </svg>
+              </button>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main className="flex-1 p-4 md:p-5 overflow-y-auto">
-          <div className="mb-4 md:mb-5">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="🔍 Cari produk..."
-              className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            />
+      {/* Main Content */}
+      <div className="flex-1 flex">
+        {/* Sidebar Cart */}
+        <aside className="hidden md:flex md:w-80 lg:w-96 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex-col transition-colors duration-200">
+          <div className="p-4 border-b dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20 transition-colors duration-200">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium uppercase tracking-wider">{isEditing ? "Edit Order" : "Order"}</p>
+                <p className="font-bold text-emerald-800 dark:text-emerald-300">{isEditing ? "Sedang Mengedit" : "Draft"}</p>
+              </div>
+              {cartItems.length > 0 && <span className="bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">{cartItems.length}</span>}
+            </div>
           </div>
 
-          {/* ✅ KATEGORI: RESPONSIF DENGAN GRID */}
-          <div className="mb-5">
-            <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Kategori</h2>
-            {/* Desktop: grid kategori */}
-            <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-2">
-              {categories.map((cat) => {
-                const isActive = category === cat;
-                let bgColor = "";
-                let textColor = "";
-
-                if (cat === "all") {
-                  bgColor = isActive ? "bg-emerald-600" : "bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600";
-                  textColor = isActive ? "text-white" : "text-gray-700 dark:text-gray-300";
-                } else {
-                  const categoryColor = categoryColorMap.get(cat) || "#6B7280";
-                  bgColor = isActive ? categoryColor : "bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600";
-                  textColor = isActive ? "text-white" : "text-gray-700 dark:text-gray-300";
-                }
-
-                return (
-                  <button key={`category-${cat}`} onClick={() => setCategory(cat)} className={`px-3 py-2 text-xs font-medium rounded-lg transition hover:opacity-90 ${bgColor} ${textColor}`}>
-                    {cat === "all" ? "Semua" : cat}
-                  </button>
-                );
-              })}
+          <div className="p-4 space-y-4 border-b dark:border-gray-700">
+            <div>
+              <label htmlFor="customerName" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                Nama Pelanggan
+              </label>
+              <input
+                id="customerName"
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Contoh: Budi"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              />
             </div>
 
-            {/* Mobile: dropdown */}
-            <div className="md:hidden">
+            <div>
+              <label htmlFor="orderType" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                Tipe Order *
+              </label>
               <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                id="orderType"
+                value={orderType}
+                onChange={(e) => setOrderType(e.target.value as "dine_in" | "takeaway")}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
               >
-                <option value="all">Semua Kategori</option>
-                {categories
-                  .filter((c) => c !== "all")
-                  .map((cat) => (
-                    <option key={`mobile-category-${cat}`} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
+                <option value="dine_in">Makan di Tempat</option>
+                <option value="takeaway">Bawa Pulang</option>
               </select>
             </div>
+
+            {orderType === "dine_in" && (
+              <div>
+                <label htmlFor="tableNumber" className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                  Nomor Meja *
+                </label>
+                <select
+                  id="tableNumber"
+                  value={tableNumber}
+                  onChange={(e) => setTableNumber(e.target.value)}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                >
+                  <option value="">Pilih Meja</option>
+                  {[...Array(30)].map((_, i) => (
+                    <option key={i + 1} value={String(i + 1)}>
+                      Meja {i + 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
-          {/* ✅ PRODUK: GRID RESPONSIF DINAMIS */}
-          {filteredProducts.length === 0 ? (
-            <div className="text-center py-10">
-              <p className="text-gray-500 dark:text-gray-400">Tidak ada produk ditemukan</p>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {cartItems.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 dark:text-gray-500">
+                <p className="text-sm">🛒 Keranjang masih kosong</p>
+              </div>
+            ) : (
+              <div key={cartAnimationKey}>
+                {cartItems.map((item) => (
+                  <div key={item.id} className="flex justify-between items-center border-b dark:border-gray-700 pb-2 animate-fadeInUp">
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">{item.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Rp {item.price.toLocaleString("id-ID")}</p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-2">
+                      <button
+                        onClick={() => decreaseQty(item.id)}
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition"
+                        disabled={item.qty <= 1}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.qty}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val) && val > 0) {
+                            setCartItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, qty: val } : i)));
+                          }
+                        }}
+                        className="w-12 text-center text-sm font-medium bg-transparent border border-gray-300 dark:border-gray-600 rounded"
+                      />
+                      <button
+                        onClick={() => increaseQty(item.id)}
+                        className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition"
+                      >
+                        +
+                      </button>
+                      <button onClick={() => removeItem(item.id)} className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300" aria-label="Hapus item">
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800 transition-colors duration-200">
+            <div className="flex justify-between font-bold text-gray-800 dark:text-gray-200 text-lg">
+              <span>Total</span>
+              <span className="text-emerald-700 dark:text-emerald-400">Rp {total.toLocaleString("id-ID")}</span>
             </div>
-          ) : (
-            <div
-              className="grid gap-3 md:gap-4"
-              style={{
-                gridTemplateColumns: getGridColumns(),
-              }}
+
+            <button
+              onClick={saveOrder}
+              disabled={cartItems.length === 0}
+              className={`w-full mt-3 py-3 rounded-lg font-semibold text-white transition ${
+                cartItems.length === 0 ? "bg-gray-400 dark:bg-gray-600 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] dark:bg-emerald-700 dark:hover:bg-emerald-600"
+              }`}
             >
-              {filteredProducts.map((product) => (
-                <button
-                  key={product.id}
-                  onClick={() => addToCart(product)}
-                  style={{
-                    backgroundColor: getBackgroundColor(product.color),
-                  }}
-                  className="text-white rounded-xl p-3 md:p-4 text-left shadow-sm hover:shadow-md transition border border-transparent hover:border-white/20 dark:hover:border-gray-300/30 animate-fadeIn group"
-                >
-                  <p className="font-semibold text-xs md:text-sm leading-tight line-clamp-2 group-hover:opacity-90">{product.name}</p>
-                  <p className="font-bold mt-1 text-sm">Rp {product.price.toLocaleString("id-ID")}</p>
-                </button>
-              ))}
+              💾 {isEditing ? "Perbarui Order" : "Simpan Order"}
+            </button>
+
+            {isEditing && (
+              <button onClick={cancelEdit} className="w-full mt-2 text-gray-600 hover:text-gray-900 text-sm">
+                Batal Edit
+              </button>
+            )}
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col">
+          <main className="flex-1 p-4 md:p-5 overflow-y-auto">
+            <div className="mb-4 md:mb-5">
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="🔍 Cari produk..."
+                className="w-full p-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              />
             </div>
-          )}
-        </main>
+
+            {/* ✅ KATEGORI: RESPONSIF DENGAN GRID */}
+            <div className="mb-5">
+              <h2 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Kategori</h2>
+              {/* Desktop: grid kategori */}
+              <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-2">
+                {categories.map((cat) => {
+                  const isActive = category === cat;
+                  let bgColor = "";
+                  let textColor = "";
+
+                  if (cat === "all") {
+                    bgColor = isActive ? "bg-emerald-600" : "bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600";
+                    textColor = isActive ? "text-white" : "text-gray-700 dark:text-gray-300";
+                  } else {
+                    const categoryColor = categoryColorMap.get(cat) || "#6B7280";
+                    bgColor = isActive ? categoryColor : "bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600";
+                    textColor = isActive ? "text-white" : "text-gray-700 dark:text-gray-300";
+                  }
+
+                  return (
+                    <button key={`category-${cat}`} onClick={() => setCategory(cat)} className={`px-3 py-2 text-xs font-medium rounded-lg transition hover:opacity-90 ${bgColor} ${textColor}`}>
+                      {cat === "all" ? "Semua" : cat}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Mobile: dropdown */}
+              <div className="md:hidden">
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                >
+                  <option value="all">Semua Kategori</option>
+                  {categories
+                    .filter((c) => c !== "all")
+                    .map((cat) => (
+                      <option key={`mobile-category-${cat}`} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            {/* ✅ PRODUK: GRID RESPONSIF DINAMIS */}
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-10">
+                <p className="text-gray-500 dark:text-gray-400">Tidak ada produk ditemukan</p>
+              </div>
+            ) : (
+              <div
+                className="grid gap-3 md:gap-4"
+                style={{
+                  gridTemplateColumns: getGridColumns(),
+                }}
+              >
+                {filteredProducts.map((product) => (
+                  <button
+                    key={product.id}
+                    onClick={() => addToCart(product)}
+                    style={{
+                      backgroundColor: getBackgroundColor(product.color),
+                    }}
+                    className="text-white rounded-xl p-3 md:p-4 text-left shadow-sm hover:shadow-md transition border border-transparent hover:border-white/20 dark:hover:border-gray-300/30 animate-fadeIn group"
+                  >
+                    <p className="font-semibold text-xs md:text-sm leading-tight line-clamp-2 group-hover:opacity-90">{product.name}</p>
+                    <p className="font-bold mt-1 text-sm">Rp {product.price.toLocaleString("id-ID")}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </main>
+        </div>
       </div>
 
       <style jsx global>{`
