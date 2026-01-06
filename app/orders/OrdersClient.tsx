@@ -13,9 +13,18 @@ export type Order = {
   order_number?: string;
   customer_name?: string;
   table_number?: string;
+  type_order?: "dine_in" | "takeaway"; // opsional, untuk ke depan
   status: "DRAFT" | "PAID" | "CANCELED";
   total: number;
+  subtotal?: number;
+  discount?: number;
+  tax?: number;
+  cash_received?: number | null; // ✅ tambahan dari backend
+  change_amount?: number | null; // ✅ tambahan dari backend
+  payment_method?: string;
   created_at: string; // ISO string
+  updated_at?: string;
+  paid_at?: string;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
@@ -53,7 +62,7 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
   const [customerFilter, setCustomerFilter] = useState("");
   const [tableFilter, setTableFilter] = useState("");
   const [dateFilter, setDateFilter] = useState<"today" | "yesterday" | "7days" | "30days" | "all">("today");
-  const [statusFilter, setStatusFilter] = useState<"DRAFT" | "PAID" | "CANCELED" | "all">("DRAFT"); // ✅ default ke DRAFT
+  const [statusFilter, setStatusFilter] = useState<"DRAFT" | "PAID" | "CANCELED" | "all">("DRAFT");
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const limit = 10;
@@ -78,7 +87,7 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
       if (customerFilter) queryParams.append("customer", customerFilter);
       if (tableFilter) queryParams.append("table", tableFilter);
       if (dateFilter !== "all") queryParams.append("dateRange", dateFilter);
-      if (statusFilter !== "all") queryParams.append("status", statusFilter); // ✅ kirim status filter
+      if (statusFilter !== "all") queryParams.append("status", statusFilter);
 
       const res = await fetch(`${API_URL}/api/orders?${queryParams}`, {
         headers: {
@@ -96,6 +105,9 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
       const normalizedOrders = (result.data || []).map((order: any) => ({
         ...order,
         total: safeParseTotal(order.total),
+        // Pastikan field opsional aman
+        cash_received: order.cash_received != null ? parseFloat(order.cash_received) : null,
+        change_amount: order.change_amount != null ? parseFloat(order.change_amount) : null,
       }));
 
       setOrders(normalizedOrders);
@@ -162,10 +174,10 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
           let badgeText = "";
 
           if (status === "DRAFT") {
-            badgeClass = "bg-red-100 text-red-800 border border-red-200"; // 🔴 Lebih mencolok
+            badgeClass = "bg-red-100 text-red-800 border border-red-200";
             badgeText = "Belum Bayar";
           } else if (status === "PAID") {
-            badgeClass = "bg-green-100 text-green-800 border border-green-200"; // 🟢 Hijau jelas
+            badgeClass = "bg-green-100 text-green-800 border border-green-200";
             badgeText = "Sudah Bayar";
           } else {
             badgeClass = "bg-gray-100 text-gray-800 border border-gray-200";
@@ -197,7 +209,6 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
   } as TableOptions<Order>);
 
   const { getTableProps, getTableBodyProps, headerGroups, rows, prepareRow } = tableInstance;
-
   const totalPages = Math.ceil(totalOrders / limit);
 
   if (status === "loading") return <p className="text-center mt-10">Loading session...</p>;
@@ -218,7 +229,6 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
               <Link href="/orders" className="text-emerald-600 border-b-2 border-emerald-600">
                 Daftar Order
               </Link>
-              {/* ❌ Hapus link "Kasir" sesuai permintaan */}
             </nav>
 
             <div>
