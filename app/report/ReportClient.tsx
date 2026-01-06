@@ -13,7 +13,6 @@ type OrderItem = {
   subtotal: number;
 };
 
-// Order dengan field cash untuk laporan audit
 type Order = {
   id: string;
   order_number: string;
@@ -200,18 +199,36 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
   }, [filteredOrders]);
 
-  // Omzet per metode pembayaran (dalam nilai)
-  const paymentValueData = useMemo(() => {
-    const map = new Map<string, number>();
+  // ✅ Rekap harian per metode pembayaran
+  const dailyPaymentData = useMemo(() => {
+    const dailyMap = new Map<string, { date: string; methods: Record<string, number> }>();
+
     filteredOrders.forEach((order) => {
+      const key = order.created_at.split("T")[0];
+      if (!dailyMap.has(key)) {
+        dailyMap.set(key, { date: key, methods: {} });
+      }
+      const existing = dailyMap.get(key)!;
       const method = order.payment_method || "Lainnya";
-      map.set(method, (map.get(method) || 0) + order.total);
+      existing.methods[method] = (existing.methods[method] || 0) + order.total;
     });
-    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+
+    return Array.from(dailyMap.values()).map((d) => ({
+      ...d,
+      label: new Date(d.date).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+      }),
+      total: Object.values(d.methods).reduce((sum, val) => sum + val, 0),
+    }));
   }, [filteredOrders]);
 
   const paymentMethods = useMemo(() => {
-    return Array.from(new Set(paidOrders.map((o) => o.payment_method).filter(Boolean)));
+    return Array.from(
+      new Set(
+        paidOrders.map((o) => o.payment_method).filter((method): method is string => !!method) // atau: method !== undefined && method !== null
+      )
+    );
   }, [paidOrders]);
 
   const handlePrint = () => {
@@ -385,20 +402,37 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
           />
         </div>
 
-        {/* Ringkasan Omzet per Metode Pembayaran */}
-        {paymentValueData.length > 0 && (
-          <section className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 mb-7">
-            <h3 className="font-semibold text-gray-900 text-lg mb-3">💸 Omzet per Metode Pembayaran</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {paymentValueData.map((item, index) => (
-                <div key={item.name} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PAYMENT_COLORS[index % PAYMENT_COLORS.length] }} />
-                    <span className="font-medium">{item.name}</span>
-                  </div>
-                  <span className="font-bold text-emerald-700">{formatCurrency(item.value)}</span>
-                </div>
-              ))}
+        {/* ✅ REKAP HARIAN PER METODE PEMBAYARAN */}
+        {dailyPaymentData.length > 0 && (
+          <section className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+            <div className="p-5 border-b border-gray-200">
+              <h3 className="font-semibold text-gray-900 text-lg">📅 Rekap Harian per Metode Pembayaran</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <Th>Tanggal</Th>
+                    {paymentMethods.map((method) => (
+                      <Th key={method}>{method}</Th>
+                    ))}
+                    <Th>Total</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dailyPaymentData.map((day, index) => (
+                    <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
+                      <Td className="text-gray-700">{day.label}</Td>
+                      {paymentMethods.map((method) => (
+                        <Td key={method} className="text-right">
+                          {day.methods[method] ? formatCurrency(day.methods[method]) : "–"}
+                        </Td>
+                      ))}
+                      <Td className="font-bold text-emerald-700 text-right">{formatCurrency(day.total)}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
         )}
@@ -445,9 +479,9 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
             )}
           </section>
 
-          {/* Metode Pembayaran */}
+          {/* Metode Pembayaran (Jumlah Transaksi) */}
           <section className="bg-white rounded-xl p-5 shadow-sm border border-gray-200">
-            <h3 className="font-semibold text-gray-900 text-lg mb-4">💳 Metode Pembayaran</h3>
+            <h3 className="font-semibold text-gray-900 text-lg mb-4">💳 Metode Pembayaran (Jumlah Transaksi)</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
