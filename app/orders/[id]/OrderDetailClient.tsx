@@ -16,15 +16,18 @@ type Order = {
   order_number: string;
   customer_name: string;
   table_number: string | null;
-  type_order: "dine_in" | "takeaway"; // ✅ Tambahkan type_order
+  type_order: "dine_in" | "takeaway";
   status: "DRAFT" | "PAID" | "CANCELED";
   subtotal: number;
+  discount: number; // opsional, tapi aman ditambahkan
   tax: number;
   total: number;
+  cash_received: number | null; // ✅ dari backend
+  change_amount: number | null; // ✅ dari backend
+  payment_method: string | null;
   created_at: string;
   updated_at: string;
   paid_at: string | null;
-  payment_method: string | null;
   items: OrderItem[];
 };
 
@@ -54,14 +57,25 @@ export default function OrderDetailClient({ order }: { order: Order }) {
 
   const statusConfig = getStatusConfig();
 
-  // ✅ Helper: Tampilkan label tipe order
   const getTypeOrderLabel = () => {
     return order.type_order === "dine_in" ? "Makan di Tempat" : "Bawa Pulang";
   };
 
-  // ✅ Cek apakah pajak diterapkan
   const hasTax = order.tax > 0;
   const taxRate = hasTax ? Math.round((order.tax / (order.subtotal || 1)) * 100) : 0;
+
+  // ✅ Helper: format metode pembayaran ke label UI
+  const getPaymentMethodLabel = () => {
+    if (!order.payment_method) return "-";
+    const map: Record<string, string> = {
+      cash: "Tunai",
+      qris: "QRIS",
+      debit: "Debit",
+      credit: "Kredit",
+      transfer: "Transfer",
+    };
+    return map[order.payment_method] || order.payment_method;
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -97,7 +111,6 @@ export default function OrderDetailClient({ order }: { order: Order }) {
             </div>
           )}
 
-          {/* ✅ Tampilkan Tipe Order */}
           <div className="mt-3 pt-3 border-t border-gray-100">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Tipe Order</p>
             <p className="text-gray-900 font-medium">{getTypeOrderLabel()}</p>
@@ -110,10 +123,9 @@ export default function OrderDetailClient({ order }: { order: Order }) {
           <div className="space-y-3">
             <div>
               <p className="text-xs text-gray-500">Nama Pelanggan</p>
-              <p className="font-medium text-gray-900">{order.customer_name || "Customer Umum"}</p>
+              <p className="font-medium text-gray-900">{order.customer_name && order.customer_name !== "-" ? order.customer_name : "Customer Umum"}</p>
             </div>
 
-            {/* ✅ Tampilkan nomor meja hanya jika dine_in */}
             {order.type_order === "dine_in" ? (
               <div>
                 <p className="text-xs text-gray-500">Nomor Meja</p>
@@ -141,8 +153,26 @@ export default function OrderDetailClient({ order }: { order: Order }) {
             {order.payment_method && (
               <div>
                 <p className="text-xs text-gray-500">Metode Pembayaran</p>
-                <p className="font-medium text-gray-900">{order.payment_method}</p>
+                <p className="font-medium text-gray-900">{getPaymentMethodLabel()}</p>
               </div>
+            )}
+
+            {/* ✅ Tampilkan cash received & kembalian hanya jika cash */}
+            {order.payment_method === "cash" && order.status === "PAID" && (
+              <>
+                {order.cash_received != null && (
+                  <div>
+                    <p className="text-xs text-gray-500">Uang Diterima</p>
+                    <p className="font-medium text-gray-900">{rupiah(order.cash_received)}</p>
+                  </div>
+                )}
+                {order.change_amount != null && order.change_amount > 0 && (
+                  <div>
+                    <p className="text-xs text-gray-500">Kembalian</p>
+                    <p className="font-medium text-green-600">{rupiah(order.change_amount)}</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>
@@ -174,6 +204,13 @@ export default function OrderDetailClient({ order }: { order: Order }) {
               <span className="text-gray-700">Subtotal</span>
               <span className="font-medium text-gray-900">{rupiah(order.subtotal)}</span>
             </div>
+
+            {order.discount > 0 && (
+              <div className="flex justify-between text-red-600">
+                <span>Diskon</span>
+                <span>-{rupiah(order.discount)}</span>
+              </div>
+            )}
 
             {hasTax ? (
               <div className="flex justify-between">
