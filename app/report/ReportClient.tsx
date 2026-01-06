@@ -3,6 +3,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 // ================= TYPES =================
@@ -48,6 +49,7 @@ const PRODUCT_COLORS = ["#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "
 
 // ================= MAIN COMPONENT =================
 export default function ReportClient({ orders, currentUser, canExport }: { orders: Order[]; currentUser: CurrentUser; canExport: boolean }) {
+  const router = useRouter();
   const [isPrinting, setIsPrinting] = useState(false);
   const [dateFilter, setDateFilter] = useState<"today" | "7days" | "30days" | "all" | "custom">("7days");
   const [methodFilter, setMethodFilter] = useState<string>("all");
@@ -106,6 +108,15 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   useEffect(() => {
     setCurrentPage(1);
   }, [dateFilter, methodFilter, searchTerm, startDate, endDate]);
+
+  // Refresh otomatis setiap 30 detik
+  useEffect(() => {
+    const interval = setInterval(() => {
+      router.refresh();
+    }, 30000); // 30 detik
+
+    return () => clearInterval(interval);
+  }, [router]);
 
   useEffect(() => {
     const totalOmzet = filteredOrders.reduce((sum, o) => sum + o.total, 0);
@@ -270,6 +281,12 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
             <Link href="/cashier" className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors">
               ⬅ Kembali ke Kasir
             </Link>
+            <button 
+              onClick={() => router.refresh()} 
+              className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors flex items-center gap-1.5"
+            >
+              🔄 Refresh
+            </button>
             {canExport && (
               <button onClick={handlePrint} disabled={isPrinting} className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-1.5">
                 {isPrinting ? (
