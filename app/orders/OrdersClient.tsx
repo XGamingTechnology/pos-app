@@ -459,7 +459,7 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
                       rows.map((row) => {
                         prepareRow(row);
                         return (
-                          <tr {...row.getRowProps()} className="hover:bg-slate-50 cursor-pointer" onClick={() => (window.location.href = `/orders/${row.original.id}`)}>
+                          <tr {...row.getRowProps()} className="hover:bg-slate-50 cursor-pointer" onClick={() => {window.location.href = `/orders/${row.original.id}`; window.location.reload();}}>
                             {row.cells.map((cell) => (
                               <td
                                 {...cell.getCellProps()}

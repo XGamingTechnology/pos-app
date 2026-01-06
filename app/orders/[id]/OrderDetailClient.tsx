@@ -37,6 +37,7 @@ export default function OrderDetailClient({ order }: { order: Order }) {
   const handlePay = () => {
     if (order.status === "DRAFT") {
       router.push(`/payment/${order.id}`);
+      router.refresh();
     }
   };
 
@@ -83,7 +84,7 @@ export default function OrderDetailClient({ order }: { order: Order }) {
         <div className="max-w-2xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-gray-900">Detail Order</h1>
-            <button onClick={() => router.push("/orders")} className="text-sm text-gray-600 hover:text-gray-900 transition">
+            <button onClick={() => {router.push("/orders"); router.refresh();}} className="text-sm text-gray-600 hover:text-gray-900 transition">
               ← Kembali
             </button>
           </div>
@@ -234,7 +235,7 @@ export default function OrderDetailClient({ order }: { order: Order }) {
         {/* Tombol Aksi */}
         {order.status === "DRAFT" && (
           <div className="flex gap-3">
-            <button onClick={() => router.push(`/cashier?edit=${order.id}`)} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-md">
+            <button onClick={() => {router.push(`/cashier?edit=${order.id}`); router.refresh();}} className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition shadow-md">
               ✏️ Edit Order
             </button>
             <button onClick={handlePay} className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition shadow-md">

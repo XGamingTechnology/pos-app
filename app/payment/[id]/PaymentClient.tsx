@@ -99,6 +99,7 @@ export default function PaymentClient({ order }: { order: Order }) {
       window.open(`/print/receipt/${order.id}`, "_blank", "width=400,height=600");
       router.refresh();
       router.push("/orders");
+      router.refresh();
     } catch (err: any) {
       console.error("PAYMENT ERROR:", err);
       toast.error("❌ Gagal Memproses Pembayaran", {
@@ -121,7 +122,7 @@ export default function PaymentClient({ order }: { order: Order }) {
               <h1 className="text-xl font-bold text-gray-900">💳 Pembayaran</h1>
               <p className="text-xs text-gray-600 mt-0.5">Atur diskon, pajak, dan metode bayar</p>
             </div>
-            <button onClick={() => router.push("/orders")} className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">
+            <button onClick={() => {router.push("/orders"); router.refresh();}} className="text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors">
               ← Kembali
             </button>
           </div>

@@ -254,9 +254,13 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
       }
 
       if (editingOrderId) {
+        // Refresh halaman sebelum navigasi
+        router.refresh();
         router.push(`/orders/${editingOrderId}`);
+        router.refresh();
       } else {
         router.push("/orders");
+        router.refresh();
       }
     } catch (err) {
       console.error("Save order error:", err);
@@ -273,6 +277,7 @@ export default function CashierClient({ user, initialProducts, initialOrder }: P
     setTableNumber("");
     setOrderType("dine_in");
     router.push("/orders");
+    router.refresh();
   };
 
   const handleLogout = () => signOut({ callbackUrl: "/login" });
