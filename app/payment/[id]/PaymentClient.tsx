@@ -68,8 +68,20 @@ export default function PaymentClient({ order }: { order: Order }) {
     try {
       setLoading(true);
 
+      // Map UI payment method values to backend values
+      const getBackendPaymentMethod = (uiMethod: string): string => {
+        const methodMap: Record<string, string> = {
+          "CASH": "cash",
+          "QRIS": "qris", 
+          "DEBIT": "debit",
+          "CREDIT": "credit",
+          "TRANSFER": "transfer"
+        };
+        return methodMap[uiMethod] || uiMethod.toLowerCase();
+      };
+
       const payload: Record<string, any> = {
-        paymentMethod: method.toLowerCase(), // "cash", "qris", dll
+        paymentMethod: getBackendPaymentMethod(method),
         includeTax,
         discount: discountValue,
       };
@@ -242,16 +254,22 @@ export default function PaymentClient({ order }: { order: Order }) {
           <section className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
             <h2 className="font-bold text-gray-900 text-lg mb-4">Metode Pembayaran</h2>
             <div className="grid grid-cols-2 gap-3">
-              {["CASH", "QRIS", "DEBIT", "TRANSFER"].map((m) => (
+              {[
+                { display: "Tunai", value: "CASH" },
+                { display: "QRIS", value: "QRIS" },
+                { display: "Debit", value: "DEBIT" },
+                { display: "Kredit", value: "CREDIT" },
+                { display: "Transfer", value: "TRANSFER" }
+              ].map((option) => (
                 <button
-                  key={m}
+                  key={option.value}
                   onClick={() => {
-                    setMethod(m);
-                    if (m !== "CASH") setCashReceived(""); // reset
+                    setMethod(option.value);
+                    if (option.value !== "CASH") setCashReceived(""); // reset
                   }}
-                  className={`py-3.5 rounded-xl font-semibold transition-all ${method === m ? "bg-green-600 text-white border-2 border-green-600" : "bg-gray-50 text-gray-800 border-2 border-gray-200 hover:bg-gray-100"}`}
+                  className={`py-3.5 rounded-xl font-semibold transition-all ${method === option.value ? "bg-green-600 text-white border-2 border-green-600" : "bg-gray-50 text-gray-800 border-2 border-gray-200 hover:bg-gray-100"}`}
                 >
-                  {m}
+                  {option.display}
                 </button>
               ))}
             </div>
