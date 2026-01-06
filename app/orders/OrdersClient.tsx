@@ -13,22 +13,22 @@ export type Order = {
   order_number?: string;
   customer_name?: string;
   table_number?: string;
-  type_order?: "dine_in" | "takeaway"; // opsional, untuk ke depan
+  type_order?: "dine_in" | "takeaway";
   status: "DRAFT" | "PAID" | "CANCELED";
   total: number;
   subtotal?: number;
   discount?: number;
   tax?: number;
-  cash_received?: number | null; // ✅ tambahan dari backend
-  change_amount?: number | null; // ✅ tambahan dari backend
+  cash_received?: number | null;
+  change_amount?: number | null;
   payment_method?: string;
-  created_at: string; // ISO string
+  created_at: string;
   updated_at?: string;
   paid_at?: string;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
-const DASHBOARD_URL = "https://sotoibuksenopati.online";
+const DASHBOARD_URL = "https://sotoibuksenopati.online"; // ✅ hapus spasi trailing
 
 /* ================= FORMATTER ================= */
 const rupiah = (value: number) =>
@@ -66,6 +66,8 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const limit = 10;
+
+  const isAdmin = data?.user?.role === "admin";
 
   const fetchOrders = async () => {
     if (status !== "authenticated" || !data?.user) return;
@@ -105,7 +107,6 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
       const normalizedOrders = (result.data || []).map((order: any) => ({
         ...order,
         total: safeParseTotal(order.total),
-        // Pastikan field opsional aman
         cash_received: order.cash_received != null ? parseFloat(order.cash_received) : null,
         change_amount: order.change_amount != null ? parseFloat(order.change_amount) : null,
       }));
@@ -125,6 +126,59 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
   useEffect(() => {
     fetchOrders();
   }, [status, data, page, searchTerm, customerFilter, tableFilter, dateFilter, statusFilter]);
+
+  // ✅ Batalkan order (hanya DRAFT)
+  const handleCancelOrder = async (id: string) => {
+    if (!data?.user) return;
+    if (!confirm("Batalkan order ini?")) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/orders/${id}/cancel`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${data.user.backendToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) throw new Error("Gagal membatalkan order");
+
+      toast.success("Order berhasil dibatalkan");
+      fetchOrders();
+    } catch (err) {
+      console.error("CANCEL ORDER ERROR:", err);
+      toast.error("Gagal membatalkan order");
+    }
+  };
+
+  // ✅ Hapus order (admin only, semua status)
+  const handleDeleteOrder = async (order: Order) => {
+    if (!data?.user || !isAdmin) return;
+
+    let message = "Hapus order ini secara permanen?";
+    if (order.status === "PAID") {
+      message = "⚠️ Order ini SUDAH DIBAYAR!\n\nHapus permanen? Ini akan menghilangkan data dari laporan keuangan.";
+    }
+
+    if (!confirm(message)) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/orders/${order.id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${data.user.backendToken}`,
+        },
+      });
+
+      if (!res.ok) throw new Error("Gagal menghapus order");
+
+      toast.success("Order berhasil dihapus");
+      fetchOrders();
+    } catch (err) {
+      console.error("DELETE ORDER ERROR:", err);
+      toast.error("Gagal menghapus order");
+    }
+  };
 
   /* ================= TABLE COLUMNS ================= */
   const columns = useMemo<Column<Order>[]>(
@@ -166,38 +220,69 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
         Cell: ({ value }: CellProps<Order, number>) => <span className="text-sm font-bold text-slate-900">{rupiah(value)}</span>,
       },
       {
-        Header: "Status",
-        accessor: "status",
+        Header: "Status & Aksi",
+        id: "actions",
         Cell: ({ row }: { row: Row<Order> }) => {
-          const { status } = row.original;
-          let badgeClass = "";
-          let badgeText = "";
-
-          if (status === "DRAFT") {
-            badgeClass = "bg-red-100 text-red-800 border border-red-200";
-            badgeText = "Belum Bayar";
-          } else if (status === "PAID") {
-            badgeClass = "bg-green-100 text-green-800 border border-green-200";
-            badgeText = "Sudah Bayar";
-          } else {
-            badgeClass = "bg-gray-100 text-gray-800 border border-gray-200";
-            badgeText = "Dibatalkan";
-          }
+          const order = row.original;
+          const isDraft = order.status === "DRAFT";
 
           return (
-            <div className="flex items-center gap-2">
-              <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${badgeClass}`}>{badgeText}</span>
-              {status === "DRAFT" && (
-                <Link href={`/orders/${row.original.id}`} className="text-xs bg-emerald-600 text-white px-2.5 py-1.5 rounded-md hover:bg-emerald-700 transition font-medium whitespace-nowrap">
-                  Bayar →
-                </Link>
-              )}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Status Badge */}
+              {(() => {
+                let badgeClass = "";
+                let badgeText = "";
+                if (order.status === "DRAFT") {
+                  badgeClass = "bg-red-100 text-red-800 border border-red-200";
+                  badgeText = "Belum Bayar";
+                } else if (order.status === "PAID") {
+                  badgeClass = "bg-green-100 text-green-800 border border-green-200";
+                  badgeText = "Sudah Bayar";
+                } else {
+                  badgeClass = "bg-gray-100 text-gray-800 border border-gray-200";
+                  badgeText = "Dibatalkan";
+                }
+                return <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${badgeClass}`}>{badgeText}</span>;
+              })()}
+
+              {/* Aksi */}
+              <div className="flex gap-1.5">
+                {isDraft && (
+                  <Link href={`/orders/${order.id}`} className="text-xs bg-emerald-600 text-white px-2.5 py-1.5 rounded-md hover:bg-emerald-700 transition font-medium">
+                    Bayar
+                  </Link>
+                )}
+
+                {isDraft && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCancelOrder(order.id);
+                    }}
+                    className="text-xs bg-amber-600 text-white px-2.5 py-1.5 rounded-md hover:bg-amber-700 transition font-medium"
+                  >
+                    Batalkan
+                  </button>
+                )}
+
+                {isAdmin && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteOrder(order);
+                    }}
+                    className="text-xs bg-red-600 text-white px-2.5 py-1.5 rounded-md hover:bg-red-700 transition font-medium"
+                  >
+                    Hapus
+                  </button>
+                )}
+              </div>
             </div>
           );
         },
       },
     ],
-    []
+    [data?.user?.role]
   );
 
   const tableInstance = useTable<Order>({
@@ -223,7 +308,7 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
         <header className="bg-white border-b sticky top-0 z-20 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <nav className="flex items-center gap-6 text-sm font-medium">
-              <a href={DASHBOARD_URL} className="text-slate-700 hover:text-emerald-600 transition">
+              <a href={DASHBOARD_URL} className="text-slate-700 hover:text-emerald-600 transition" onClick={(e) => e.preventDefault()}>
                 Dashboard
               </a>
               <Link href="/orders" className="text-emerald-600 border-b-2 border-emerald-600">
@@ -356,7 +441,15 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
                         return (
                           <tr {...row.getRowProps()} className="hover:bg-slate-50 cursor-pointer" onClick={() => (window.location.href = `/orders/${row.original.id}`)}>
                             {row.cells.map((cell) => (
-                              <td {...cell.getCellProps()} className="px-4 py-3 text-sm">
+                              <td
+                                {...cell.getCellProps()}
+                                className="px-4 py-3 text-sm"
+                                onClick={(e) => {
+                                  if ((e.target as HTMLElement).closest("button, a")) {
+                                    e.stopPropagation();
+                                  }
+                                }}
+                              >
                                 {cell.render("Cell")}
                               </td>
                             ))}
