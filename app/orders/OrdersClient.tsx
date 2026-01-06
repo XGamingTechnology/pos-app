@@ -28,7 +28,7 @@ export type Order = {
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
-const DASHBOARD_URL = "https://sotoibuksenopati.online"; // ✅ hapus spasi trailing
+const DASHBOARD_URL = "https://sotoibuksenopati.online"; // ✅ spasi trailing dihapus
 
 /* ================= FORMATTER ================= */
 const rupiah = (value: number) =>
@@ -180,6 +180,12 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
     }
   };
 
+  // ✅ Cetak ulang struk
+  const handleReprint = (orderId: string) => {
+    window.open(`/print/receipt/${orderId}`, "_blank", "width=400,height=600");
+    toast.success("Membuka struk untuk dicetak ulang");
+  };
+
   /* ================= TABLE COLUMNS ================= */
   const columns = useMemo<Column<Order>[]>(
     () => [
@@ -225,6 +231,7 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
         Cell: ({ row }: { row: Row<Order> }) => {
           const order = row.original;
           const isDraft = order.status === "DRAFT";
+          const isPaid = order.status === "PAID";
 
           return (
             <div className="flex flex-wrap items-center gap-2">
@@ -262,6 +269,19 @@ export default function OrdersClient({ initialOrders = [] }: { initialOrders?: O
                     className="text-xs bg-amber-600 text-white px-2.5 py-1.5 rounded-md hover:bg-amber-700 transition font-medium"
                   >
                     Batalkan
+                  </button>
+                )}
+
+                {/* ✅ Tombol Cetak Ulang untuk order PAID */}
+                {isPaid && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReprint(order.id);
+                    }}
+                    className="text-xs bg-blue-600 text-white px-2.5 py-1.5 rounded-md hover:bg-blue-700 transition font-medium"
+                  >
+                    Cetak Ulang
                   </button>
                 )}
 
