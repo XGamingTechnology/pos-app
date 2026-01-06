@@ -8,14 +8,12 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Deteksi mobile
   useEffect(() => {
     const userAgent = navigator.userAgent;
     const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
     setIsMobile(isMobileDevice);
   }, []);
 
-  // Load order
   useEffect(() => {
     if (!orderId || orderId === "undefined" || orderId === "null") {
       setError("ID order tidak valid");
@@ -53,55 +51,41 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
     load();
   }, [orderId]);
 
-  // 🖨️ Auto-print & auto-close hanya di desktop
+  // Auto-print & auto-close di desktop
   useEffect(() => {
     if (!order || isMobile) return;
 
     const closeWindow = () => {
-      // Hanya close jika window dibuka oleh script (aman)
       if (window.opener || window.name === "receipt") {
         window.close();
       }
     };
 
-    // Gunakan afterprint event
-    const handleAfterPrint = () => {
-      closeWindow();
-    };
-
+    const handleAfterPrint = () => closeWindow();
     window.addEventListener("afterprint", handleAfterPrint);
-    window.print(); // Trigger print
+    window.print();
 
-    // Fallback: tutup setelah 8 detik jika afterprint tidak dipanggil
     const fallbackTimeout = setTimeout(closeWindow, 8000);
-
     return () => {
       window.removeEventListener("afterprint", handleAfterPrint);
       clearTimeout(fallbackTimeout);
     };
   }, [order, isMobile]);
 
-  // 🔄 Redirect ke kasir setelah kembali dari app (mobile only)
+  // Redirect ke kasir setelah kembali dari app (mobile)
   useEffect(() => {
     if (!isMobile || !order) return;
 
-    // Deteksi kembali dari background (misal: setelah buka app printer)
     const handlePageShow = (event: PageTransitionEvent) => {
-      // Jika berasal dari disk cache (kembali dari app eksternal), redirect
       if (event.persisted) {
-        const cashierUrl = `${window.location.origin}/kasir`;
-        window.location.href = cashierUrl;
+        window.location.href = "https://sotoibuksenopati.online/cashier";
       }
     };
 
     window.addEventListener("pageshow", handlePageShow);
-
-    return () => {
-      window.removeEventListener("pageshow", handlePageShow);
-    };
+    return () => window.removeEventListener("pageshow", handlePageShow);
   }, [isMobile, order]);
 
-  // Error UI
   if (error) {
     return (
       <div className="receipt" style={{ padding: "20px", textAlign: "center", fontFamily: "monospace" }}>
@@ -123,7 +107,7 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
     );
   }
 
-  // Formatter
+  // === Formatter Baru ===
   const formatItemLine = (qty: number, name: string, subtotal: number) => {
     const qtyStr = `${qty}x`.padEnd(4);
     const nameTruncated = name.length > 16 ? name.substring(0, 16) : name.padEnd(16);
@@ -140,6 +124,7 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
     return " ".repeat(pad > 0 ? pad : 0) + text;
   };
 
+  // === Render ===
   return (
     <div className="receipt" style={{ fontFamily: "monospace", maxWidth: "300px", margin: "0 auto", padding: "10px" }}>
       <pre className="title">{centerText("SOTO IBUK SENOPATI", 30)}</pre>
@@ -167,6 +152,7 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
 
       <hr style={{ margin: "8px 0" }} />
 
+      {/* Rincian Pembayaran */}
       <pre className="item-line" style={{ margin: "4px 0" }}>
         {"Sub".padEnd(18)} {formatPrice(order.subtotal)}
       </pre>
@@ -187,6 +173,20 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
         {"TOTAL".padEnd(18)} {formatPrice(order.total)}
       </pre>
 
+      {/* ✅ Tambahkan bagian Cash & Kembalian */}
+      {order.payment_method === "cash" && (
+        <>
+          <pre className="item-line" style={{ margin: "4px 0" }}>
+            {"Uang".padEnd(18)} {formatPrice(order.cash_received || 0)}
+          </pre>
+          {order.change_amount != null && order.change_amount > 0 && (
+            <pre className="item-line" style={{ margin: "4px 0", color: "green" }}>
+              {"Kembali".padEnd(18)} {formatPrice(order.change_amount)}
+            </pre>
+          )}
+        </>
+      )}
+
       <hr style={{ margin: "8px 0" }} />
 
       <p className="center" style={{ fontSize: "12px", margin: "6px 0" }}>
@@ -197,7 +197,7 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
         Terima kasih 🙏
       </p>
 
-      {/* Mobile action buttons */}
+      {/* Mobile: tombol aksi */}
       {isMobile && (
         <div className="print-actions" style={{ marginTop: "16px", textAlign: "center", display: "flex", flexDirection: "column", gap: "8px" }}>
           <a
