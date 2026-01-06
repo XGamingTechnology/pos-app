@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
+// ================= TYPES =================
 type OrderItem = {
   product_name: string;
   quantity: number;
@@ -12,6 +13,7 @@ type OrderItem = {
   subtotal: number;
 };
 
+// Order dengan field cash untuk laporan audit
 type Order = {
   id: string;
   order_number: string;
@@ -21,6 +23,8 @@ type Order = {
   total: number;
   status: "DRAFT" | "PAID" | "CANCELED";
   payment_method?: string;
+  cash_received?: number | null;
+  change_amount?: number | null;
   items: OrderItem[];
 };
 
@@ -28,7 +32,7 @@ type TopProduct = {
   name: string;
   qty: number;
   revenue: number;
-  contribution: number; // tambahan
+  contribution: number;
 };
 
 type CurrentUser = {
@@ -38,11 +42,12 @@ type CurrentUser = {
   backendToken: string | null;
 };
 
+// ================= CONFIG =================
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
-
 const PAYMENT_COLORS = ["#10B981", "#3B82F6", "#8B5CF6", "#F59E0B", "#EF4444"];
 const PRODUCT_COLORS = ["#EF4444", "#F97316", "#EAB308", "#22C55E", "#3B82F6", "#8B5CF6", "#EC4899", "#6B7280", "#10B981", "#F59E0B"];
 
+// ================= MAIN COMPONENT =================
 export default function ReportClient({ orders, currentUser, canExport }: { orders: Order[]; currentUser: CurrentUser; canExport: boolean }) {
   const [isPrinting, setIsPrinting] = useState(false);
   const [dateFilter, setDateFilter] = useState<"today" | "7days" | "30days" | "all" | "custom">("7days");
@@ -99,12 +104,10 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
     });
   }, [paidOrders, dateFilter, methodFilter, searchTerm, startDate, endDate]);
 
-  // ✅ Reset halaman saat filter berubah
   useEffect(() => {
     setCurrentPage(1);
   }, [dateFilter, methodFilter, searchTerm, startDate, endDate]);
 
-  // ✅ Hitung produk terlaris + kontribusi
   useEffect(() => {
     const totalOmzet = filteredOrders.reduce((sum, o) => sum + o.total, 0);
     const productMap = new Map<string, { name: string; qty: number; revenue: number }>();
@@ -138,13 +141,10 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   const totalOmzet = useMemo(() => filteredOrders.reduce((sum, o) => sum + o.total, 0), [filteredOrders]);
   const totalTransaksi = filteredOrders.length;
   const rataRataPerTransaksi = totalTransaksi > 0 ? totalOmzet / totalTransaksi : 0;
-
-  // ✅ Hitung pelanggan unik
   const uniqueCustomers = useMemo(() => {
     const names = new Set(filteredOrders.map((o) => o.customer_name).filter((name) => name && name !== "-"));
-    return names.size || 1; // minimal 1
+    return names.size || 1;
   }, [filteredOrders]);
-
   const rataRataPerPelanggan = totalOmzet / uniqueCustomers;
 
   const dailyData = useMemo(() => {
@@ -186,7 +186,6 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
     return dailyArray;
   }, [filteredOrders, dateFilter]);
 
-  // ✅ Cari puncak omzet
   const peakDay = useMemo(() => {
     if (dailyData.length === 0) return null;
     return dailyData.reduce((a, b) => (a.total > b.total ? a : b));
@@ -197,6 +196,16 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
     filteredOrders.forEach((order) => {
       const method = order.payment_method || "Lainnya";
       map.set(method, (map.get(method) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+  }, [filteredOrders]);
+
+  // Omzet per metode pembayaran (dalam nilai)
+  const paymentValueData = useMemo(() => {
+    const map = new Map<string, number>();
+    filteredOrders.forEach((order) => {
+      const method = order.payment_method || "Lainnya";
+      map.set(method, (map.get(method) || 0) + order.total);
     });
     return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
   }, [filteredOrders]);
@@ -376,6 +385,24 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
           />
         </div>
 
+        {/* Ringkasan Omzet per Metode Pembayaran */}
+        {paymentValueData.length > 0 && (
+          <section className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 mb-7">
+            <h3 className="font-semibold text-gray-900 text-lg mb-3">💸 Omzet per Metode Pembayaran</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {paymentValueData.map((item, index) => (
+                <div key={item.name} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PAYMENT_COLORS[index % PAYMENT_COLORS.length] }} />
+                    <span className="font-medium">{item.name}</span>
+                  </div>
+                  <span className="font-bold text-emerald-700">{formatCurrency(item.value)}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* CHARTS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Omzet Harian */}
@@ -523,18 +550,19 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
                       <Th>Produk Terjual</Th>
                       <Th>Metode</Th>
                       <Th>Total</Th>
+                      {currentUser.role === "admin" && <Th>Uang Diterima</Th>}
+                      {currentUser.role === "admin" && <Th>Kembalian</Th>}
                       <Th>Aksi</Th>
                     </tr>
                   </thead>
                   <tbody>
                     {currentOrders.map((o) => (
-                      <OrderRow key={o.id} order={o} formatCurrency={formatCurrency} formatDate={formatDate} />
+                      <OrderRow key={o.id} order={o} formatCurrency={formatCurrency} formatDate={formatDate} isAdmin={currentUser.role === "admin"} />
                     ))}
                   </tbody>
                 </table>
               </div>
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="px-5 py-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <p className="text-sm text-gray-600">
@@ -563,7 +591,6 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
         </section>
       </main>
 
-      {/* PRINT STYLES */}
       <style jsx global>{`
         @media print {
           .no-print {
@@ -596,8 +623,8 @@ export default function ReportClient({ orders, currentUser, canExport }: { order
   );
 }
 
-// ✅ OrderRow dengan header lengkap
-function OrderRow({ order, formatCurrency, formatDate }: { order: Order; formatCurrency: (value: number) => string; formatDate: (dateString: string) => string }) {
+// ================= COMPONENTS =================
+function OrderRow({ order, formatCurrency, formatDate, isAdmin }: { order: Order; formatCurrency: (value: number) => string; formatDate: (dateString: string) => string; isAdmin: boolean }) {
   const [showDetails, setShowDetails] = useState(false);
 
   const getProductNames = () => {
@@ -620,6 +647,8 @@ function OrderRow({ order, formatCurrency, formatDate }: { order: Order; formatC
           <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-xs font-medium">{order.payment_method || "–"}</span>
         </Td>
         <Td className="font-semibold text-emerald-700">{formatCurrency(order.total)}</Td>
+        {isAdmin && <Td>{order.payment_method === "cash" && order.cash_received != null ? formatCurrency(order.cash_received) : "–"}</Td>}
+        {isAdmin && <Td>{order.payment_method === "cash" && order.change_amount != null && order.change_amount > 0 ? formatCurrency(order.change_amount) : "–"}</Td>}
         <Td>
           <button onClick={() => setShowDetails(!showDetails)} className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
             {showDetails ? "Sembunyikan" : "Lihat Detail"}
@@ -629,7 +658,7 @@ function OrderRow({ order, formatCurrency, formatDate }: { order: Order; formatC
 
       {showDetails && (
         <tr className="bg-gray-50">
-          <td colSpan={9} className="px-4 py-4">
+          <td colSpan={isAdmin ? 11 : 9} className="px-4 py-4">
             <div className="space-y-2">
               <h4 className="font-medium text-gray-900">Detail Produk:</h4>
               <div className="overflow-x-auto">

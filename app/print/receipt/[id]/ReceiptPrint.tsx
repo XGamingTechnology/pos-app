@@ -130,6 +130,7 @@ export default function ReceiptPrint({ orderId }: { orderId: string }) {
       <pre className="title">{centerText("SOTO IBUK SENOPATI", 30)}</pre>
       <pre className="center-line">{centerText("Jl.Tulodong Atas 1 no 3A", 30)}</pre>
       <pre className="center-line">{centerText("Kebayoran Baru, Jakarta Selatan", 30)}</pre>
+      <pre className="center-line">{centerText("Telp :O87789617176", 30)}</pre>
       <hr style={{ margin: "8px 0" }} />
 
       <div className="meta" style={{ fontSize: "12px", marginBottom: "8px" }}>
