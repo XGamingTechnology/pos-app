@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth-options";
 import { db } from "@/lib/db";
 
 // Define valid payment methods
@@ -22,7 +23,7 @@ function normalizePaymentMethod(paymentMethod: string): string | null {
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -81,6 +82,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         cash_received: normalizedPaymentMethod === "cash" ? cashReceived : null,
         paid_at: new Date(),
       },
+      include: {
+        items: true
+      }
     });
 
     return Response.json({ 
@@ -97,7 +101,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -122,6 +126,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
           payment_method: normalizedPaymentMethod,
           paid_at: new Date(),
         },
+        include: {
+          items: true
+        }
       });
 
       return Response.json({ 
@@ -134,6 +141,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       const updatedOrder = await db.order.update({
         where: { id: params.id },
         data: { status },
+        include: {
+          items: true
+        }
       });
 
       return Response.json({ 

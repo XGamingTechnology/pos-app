@@ -1,3 +1,1 @@
-```
-node_modules/
-```
+Nothing should be ignored based on the provided file changes. The modified file `app/api/orders/[id]/pay/route.ts` is a source code file that should be tracked in version control.
