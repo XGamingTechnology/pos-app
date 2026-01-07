@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth-options";
 import { db } from "@/lib/db";
 
 // Define valid payment methods
@@ -36,7 +37,7 @@ function normalizeOrder(order: any) {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -67,7 +68,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     
     if (!session?.user) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
